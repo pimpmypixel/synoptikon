@@ -1,0 +1,3 @@
+- choose google font -> download and use
+- interactive mode
+- italics

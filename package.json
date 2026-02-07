@@ -1,0 +1,25 @@
+{
+  "name": "synoptikon",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "vite": "^6.2.0",
+    "@types/bun": "latest"
+  },
+  "scripts": {
+    "dev:backend": "cd backend && bunx motia dev --host 0.0.0.0 -p 3001",
+    "dev:proxy": "bun run proxy.ts",
+    "dev:frontend": "cd frontend && vite --host 0.0.0.0",
+    "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
+    "build:frontend": "cd frontend && vite build",
+    "build": "tsc -b && bun run build:frontend"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@motiadev/stream-client-react": "^0.17.14-beta.196",
+    "concurrently": "^9.2.1"
+  }
+}

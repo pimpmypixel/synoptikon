@@ -567,14 +567,24 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete poster");
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to delete poster");
       }
 
-      const data = await response.json();
-      const { requestId } = data;
+      // Try to parse JSON response, but handle empty/invalid responses
+      let requestId: string | null = null;
+      const responseText = await response.text();
+      if (responseText) {
+        try {
+          const data = JSON.parse(responseText);
+          requestId = data.requestId;
+        } catch {
+          // Response wasn't JSON, that's okay
+        }
+      }
 
-      // Subscribe to deletion progress
-      if (stream) {
+      // Subscribe to deletion progress if we have a requestId and stream
+      if (requestId && stream) {
         const subscription = stream.subscribeGroup("deletionProgress", requestId);
 
         subscription.addChangeListener((updates: any) => {
@@ -593,6 +603,7 @@ export default function Dashboard() {
 
         // Timeout fallback - remove from UI after 5 seconds anyway
         setTimeout(() => {
+          updateToast(toastId, `Poster deleted successfully`, "success");
           setPosters((prev) => prev.filter((p) => p.filename !== filename));
           subscription.close();
         }, 5000);

@@ -12,7 +12,7 @@ export const config: ApiRouteConfig = {
 }
 
 export const handler = async (req: any, context: any) => {
-  const { filename } = req.params
+  const { filename } = req.pathParams
 
   if (!filename) {
     return {

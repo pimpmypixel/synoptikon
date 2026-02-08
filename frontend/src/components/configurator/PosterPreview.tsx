@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { THEME_COLORS } from "./theme-colors";
 import type { PosterFormData } from "./types";
+import { PAPER_SIZES } from "./types";
 
 interface PosterPreviewProps {
   formData: PosterFormData;
@@ -77,8 +78,24 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
   const borderPercent = formData.border ?? 5;
   const isLandscape = formData.landscape;
 
-  // Poster dimensions ratio
-  const aspectRatio = isLandscape ? "4/3" : "3/4";
+  // Get paper size dimensions
+  const paperSize = PAPER_SIZES.find((p) => p.id === formData.paperSize) || PAPER_SIZES[0];
+  const isCustom = formData.paperSize === "custom";
+
+  // Calculate dimensions based on paper size and orientation
+  let width: number, height: number;
+  if (isCustom) {
+    width = formData.widthCm || 21;
+    height = formData.heightCm || 29.7;
+  } else if (isLandscape) {
+    width = paperSize.height;
+    height = paperSize.width;
+  } else {
+    width = paperSize.width;
+    height = paperSize.height;
+  }
+
+  const aspectRatio = `${width}/${height}`;
 
   const cityName = formData.city || "City Name";
   const countryName = formData.country || "Country";
@@ -151,23 +168,23 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
       {/* Preview info */}
       <div className="mt-3 text-xs text-muted-foreground space-y-1">
         <div className="flex justify-between">
-          <span>Theme:</span>
-          <span className="capitalize">{formData.theme.replace(/_/g, " ")}</span>
+          <span>Size:</span>
+          <span>{isCustom ? "Custom" : formData.paperSize} ({width}×{height}cm)</span>
         </div>
         <div className="flex justify-between">
-          <span>Orientation:</span>
-          <span>{isLandscape ? "Landscape" : "Portrait"}</span>
+          <span>Theme:</span>
+          <span className="capitalize">{formData.theme.replace(/_/g, " ")}</span>
         </div>
         <div className="flex justify-between">
           <span>Border:</span>
           <span>{borderPercent}%</span>
         </div>
         <div className="flex justify-between">
-          <span>Title Font:</span>
+          <span>Title:</span>
           <span>{titleFontFamily}</span>
         </div>
         <div className="flex justify-between">
-          <span>Subtitle Font:</span>
+          <span>Subtitle:</span>
           <span>{subtitleFontFamily}</span>
         </div>
         <div className="flex justify-between">

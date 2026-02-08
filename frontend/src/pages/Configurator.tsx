@@ -25,9 +25,10 @@ const INITIAL_FORM_DATA: PosterFormData = {
   distance: 10000,
   format: "png",
   landscape: false,
-  border: 15,
+  border: 5,
   titleFont: "Roboto",
   subtitleFont: "Roboto",
+  paperSize: "A4",
 };
 
 export default function Configurator() {

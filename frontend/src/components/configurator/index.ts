@@ -6,4 +6,5 @@ export { ProgressView } from "./ProgressView";
 export { FontSelector, FontSelectorCompact } from "./FontSelector";
 export { PosterPreview } from "./PosterPreview";
 export { THEME_COLORS } from "./theme-colors";
+export { PAPER_SIZES } from "./types";
 export * from "./types";

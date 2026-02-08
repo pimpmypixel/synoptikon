@@ -542,6 +542,7 @@ export default function Dashboard() {
       landscape: poster.landscape,
       titleFont: poster.titleFont,
       subtitleFont: poster.subtitleFont,
+      paperSize: "A4", // Default to A4 when cloning
     };
 
     sessionStorage.setItem("clonePosterData", JSON.stringify(formData));

@@ -11,9 +11,26 @@ export interface PosterFormData {
   landscape: boolean;
   titleFont?: string;
   subtitleFont?: string;
+  paperSize: string;
   widthCm?: number;
   heightCm?: number;
 }
+
+// Standard paper sizes in cm (portrait orientation)
+export const PAPER_SIZES = [
+  { id: "A4", label: "A4", width: 21, height: 29.7, description: "Standard print" },
+  { id: "A3", label: "A3", width: 29.7, height: 42, description: "Medium poster" },
+  { id: "A2", label: "A2", width: 42, height: 59.4, description: "Large poster" },
+  { id: "A1", label: "A1", width: 59.4, height: 84.1, description: "Exhibition size" },
+  { id: "A0", label: "A0", width: 84.1, height: 118.9, description: "Billboard size" },
+  { id: "Letter", label: "Letter", width: 21.6, height: 27.9, description: "US standard" },
+  { id: "Legal", label: "Legal", width: 21.6, height: 35.6, description: "US legal" },
+  { id: "Tabloid", label: "Tabloid", width: 27.9, height: 43.2, description: "US tabloid" },
+  { id: "30x40", label: "30×40", width: 30, height: 40, description: "Photo print" },
+  { id: "50x70", label: "50×70", width: 50, height: 70, description: "Standard frame" },
+  { id: "60x90", label: "60×90", width: 60, height: 90, description: "Large frame" },
+  { id: "custom", label: "Custom", width: 0, height: 0, description: "Set your own" },
+] as const;
 
 export interface ProgressUpdate {
   status: string;

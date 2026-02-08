@@ -4,4 +4,6 @@ export { ThemeStep } from "./ThemeStep";
 export { DimensionsStep } from "./DimensionsStep";
 export { ProgressView } from "./ProgressView";
 export { FontSelector, FontSelectorCompact } from "./FontSelector";
+export { PosterPreview } from "./PosterPreview";
+export { THEME_COLORS } from "./theme-colors";
 export * from "./types";

@@ -15,9 +15,13 @@ import {
   PenTool,
   Clock,
   Copy,
-  ChevronDown,
-  ChevronRight,
   Type,
+  LayoutGrid,
+  List,
+  Eye,
+  Trash2,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import type { PosterFormData } from "@/components/configurator";
 
@@ -36,24 +40,7 @@ interface PosterInfo {
   url: string;
 }
 
-interface PosterGroup {
-  city: string;
-  country: string;
-  posters: PosterInfo[];
-}
-
-function PosterSkeleton() {
-  return (
-    <div className="flex gap-3 p-3 rounded-lg border bg-card">
-      <Skeleton className="w-20 h-28 rounded-md flex-shrink-0" />
-      <div className="flex-1 space-y-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-3 w-20" />
-      </div>
-    </div>
-  );
-}
+type ViewMode = "grid" | "table";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -61,14 +48,164 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function PosterThumbnail({ poster, onClone }: { poster: PosterInfo; onClone: () => void }) {
+function PosterGridSkeleton() {
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <Skeleton className="aspect-[3/4] w-full" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3 w-32" />
+        <div className="flex gap-2 pt-2">
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-7 w-16" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewModal({
+  poster,
+  onClose,
+}: {
+  poster: PosterInfo;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-4xl max-h-[90vh] bg-background rounded-lg overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
+          onClick={onClose}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+
+        {poster.format === "png" ? (
+          <img
+            src={poster.url}
+            alt={`${poster.city} poster`}
+            className="max-w-full max-h-[85vh] object-contain"
+          />
+        ) : (
+          <div className="w-96 h-96 flex flex-col items-center justify-center bg-muted">
+            <ImageIcon className="w-16 h-16 text-muted-foreground" />
+            <span className="text-lg text-muted-foreground mt-2">
+              {poster.format.toUpperCase()} Preview Not Available
+            </span>
+          </div>
+        )}
+
+        <div className="p-4 border-t bg-background">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">{poster.city}</h3>
+              <p className="text-sm text-muted-foreground">{poster.country}</p>
+            </div>
+            <Button size="sm" asChild>
+              <a href={poster.url} download={poster.filename}>
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </a>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({
+  poster,
+  onConfirm,
+  onCancel,
+  isDeleting,
+}: {
+  poster: PosterInfo;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-background rounded-lg p-6 max-w-md w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-full bg-destructive/10">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+          </div>
+          <div>
+            <h3 className="font-semibold">Delete Poster</h3>
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone
+            </p>
+          </div>
+        </div>
+
+        <p className="text-sm mb-6">
+          Are you sure you want to delete the poster for{" "}
+          <span className="font-medium">{poster.city}, {poster.country}</span>?
+        </p>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onCancel} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PosterGridCard({
+  poster,
+  onClone,
+  onPreview,
+  onDelete,
+}: {
+  poster: PosterInfo;
+  onClone: () => void;
+  onPreview: () => void;
+  onDelete: () => void;
+}) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="flex gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
+    <div className="rounded-lg border bg-card overflow-hidden group hover:shadow-lg transition-shadow">
       {/* Thumbnail */}
-      <div className="w-20 h-28 rounded-md overflow-hidden bg-muted flex-shrink-0 relative">
+      <div
+        className="aspect-[3/4] bg-muted relative cursor-pointer"
+        onClick={onPreview}
+      >
         {poster.format === "png" ? (
           <>
             {!imageLoaded && !imageError && (
@@ -87,64 +224,88 @@ function PosterThumbnail({ poster, onClone }: { poster: PosterInfo; onClone: () 
           </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center">
-            <ImageIcon className="w-6 h-6 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground mt-1">
+            <ImageIcon className="w-12 h-12 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground mt-2">
               {poster.format.toUpperCase()}
             </span>
           </div>
         )}
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <Eye className="w-8 h-8 text-white" />
+        </div>
+
+        {/* Theme badge */}
+        <Badge
+          variant="secondary"
+          className="absolute top-2 left-2 text-[10px] capitalize"
+        >
+          {poster.theme.replace(/_/g, " ")}
+        </Badge>
       </div>
 
       {/* Details */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-sm">
-              <Palette className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="truncate capitalize">{poster.theme.replace(/_/g, " ")}</span>
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
-              <span>{poster.distance / 1000}km</span>
-              <span>•</span>
-              <span>{poster.landscape ? "Landscape" : "Portrait"}</span>
-              <span>•</span>
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                {poster.format.toUpperCase()}
-              </Badge>
-              <span>•</span>
-              <span>{formatFileSize(poster.fileSize)}</span>
-            </div>
-            {(poster.titleFont || poster.subtitleFont) && (
-              <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                <Type className="w-3 h-3" />
-                {poster.titleFont && <span>{poster.titleFont}</span>}
-                {poster.titleFont && poster.subtitleFont && <span>/</span>}
-                {poster.subtitleFont && <span>{poster.subtitleFont}</span>}
-              </div>
-            )}
-            <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              {new Date(poster.createdAt).toLocaleString()}
-            </div>
+      <div className="p-3">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+          <span>{poster.distance / 1000}km</span>
+          <span>•</span>
+          <span>{poster.landscape ? "Landscape" : "Portrait"}</span>
+          <span>•</span>
+          <span>{formatFileSize(poster.fileSize)}</span>
+        </div>
+
+        {(poster.titleFont || poster.subtitleFont) && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+            <Type className="w-3 h-3" />
+            <span className="truncate">
+              {poster.titleFont}
+              {poster.titleFont && poster.subtitleFont && " / "}
+              {poster.subtitleFont}
+            </span>
           </div>
+        )}
+
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-3">
+          <Clock className="w-3 h-3" />
+          {new Date(poster.createdAt).toLocaleDateString()}
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs gap-1"
+            className="h-7 text-xs flex-1"
+            onClick={onPreview}
+          >
+            <Eye className="w-3 h-3 mr-1" />
+            Preview
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs flex-1"
             onClick={onClone}
           >
-            <Copy className="w-3 h-3" />
+            <Copy className="w-3 h-3 mr-1" />
             Clone
           </Button>
-          <Button size="sm" variant="secondary" className="h-7 text-xs gap-1" asChild>
+        </div>
+        <div className="flex gap-2 mt-2">
+          <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" asChild>
             <a href={poster.url} download={poster.filename}>
-              <Download className="w-3 h-3" />
+              <Download className="w-3 h-3 mr-1" />
               Download
             </a>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="w-3 h-3" />
           </Button>
         </div>
       </div>
@@ -152,53 +313,165 @@ function PosterThumbnail({ poster, onClone }: { poster: PosterInfo; onClone: () 
   );
 }
 
-function LocationGroup({
-  group,
+function PosterTableRow({
+  poster,
   onClone,
-  defaultExpanded = true,
+  onPreview,
+  onDelete,
 }: {
-  group: PosterGroup;
-  onClone: (poster: PosterInfo) => void;
-  defaultExpanded?: boolean;
+  poster: PosterInfo;
+  onClone: () => void;
+  onPreview: () => void;
+  onDelete: () => void;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      {/* Group Header */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 bg-muted/50 hover:bg-muted transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <MapPin className="w-5 h-5 text-primary" />
-          <div className="text-left">
-            <h3 className="font-semibold text-lg">{group.city}</h3>
-            <p className="text-sm text-muted-foreground">{group.country}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary">
-            {group.posters.length} version{group.posters.length !== 1 ? "s" : ""}
-          </Badge>
-          {expanded ? (
-            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="p-3">
+        <div
+          className="w-12 h-16 rounded overflow-hidden bg-muted cursor-pointer"
+          onClick={onPreview}
+        >
+          {poster.format === "png" ? (
+            <img
+              src={poster.url}
+              alt={`${poster.city} poster`}
+              className={cn(
+                "w-full h-full object-cover transition-opacity",
+                imageLoaded ? "opacity-100" : "opacity-0"
+              )}
+              onLoad={() => setImageLoaded(true)}
+            />
           ) : (
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="w-4 h-4 text-muted-foreground" />
+            </div>
           )}
         </div>
-      </button>
+      </td>
+      <td className="p-3">
+        <div className="font-medium">{poster.city}</div>
+        <div className="text-sm text-muted-foreground">{poster.country}</div>
+      </td>
+      <td className="p-3">
+        <Badge variant="outline" className="capitalize text-xs">
+          {poster.theme.replace(/_/g, " ")}
+        </Badge>
+      </td>
+      <td className="p-3 text-sm text-muted-foreground">
+        {poster.distance / 1000}km
+      </td>
+      <td className="p-3 text-sm text-muted-foreground">
+        {poster.landscape ? "Landscape" : "Portrait"}
+      </td>
+      <td className="p-3 text-sm text-muted-foreground">
+        {formatFileSize(poster.fileSize)}
+      </td>
+      <td className="p-3 text-sm text-muted-foreground">
+        {new Date(poster.createdAt).toLocaleDateString()}
+      </td>
+      <td className="p-3">
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onPreview}>
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClone}>
+            <Copy className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
+            <a href={poster.url} download={poster.filename}>
+              <Download className="w-4 h-4" />
+            </a>
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
-      {/* Poster List */}
-      {expanded && (
-        <div className="p-3 space-y-2 bg-background">
-          {group.posters.map((poster) => (
-            <PosterThumbnail
+function LocationSection({
+  city,
+  country,
+  posters,
+  viewMode,
+  onClone,
+  onPreview,
+  onDelete,
+}: {
+  city: string;
+  country: string;
+  posters: PosterInfo[];
+  viewMode: ViewMode;
+  onClone: (poster: PosterInfo) => void;
+  onPreview: (poster: PosterInfo) => void;
+  onDelete: (poster: PosterInfo) => void;
+}) {
+  return (
+    <div className="mb-8">
+      {/* Location Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <MapPin className="w-5 h-5 text-primary" />
+        <div>
+          <h3 className="font-semibold text-lg">{city}</h3>
+          <p className="text-sm text-muted-foreground">{country}</p>
+        </div>
+        <Badge variant="secondary" className="ml-auto">
+          {posters.length} poster{posters.length !== 1 ? "s" : ""}
+        </Badge>
+      </div>
+
+      {/* Grid View */}
+      {viewMode === "grid" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {posters.map((poster) => (
+            <PosterGridCard
               key={poster.filename}
               poster={poster}
               onClone={() => onClone(poster)}
+              onPreview={() => onPreview(poster)}
+              onDelete={() => onDelete(poster)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Table View */}
+      {viewMode === "table" && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground"></th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Location</th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Theme</th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Distance</th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Orientation</th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Size</th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Created</th>
+                <th className="p-3 text-left text-xs font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {posters.map((poster) => (
+                <PosterTableRow
+                  key={poster.filename}
+                  poster={poster}
+                  onClone={() => onClone(poster)}
+                  onPreview={() => onPreview(poster)}
+                  onDelete={() => onDelete(poster)}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -210,6 +483,10 @@ export default function Dashboard() {
   const [posters, setPosters] = useState<PosterInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [previewPoster, setPreviewPoster] = useState<PosterInfo | null>(null);
+  const [deletePoster, setDeletePoster] = useState<PosterInfo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchPosters = async () => {
     try {
@@ -232,14 +509,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchPosters();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPosters, 30000);
     return () => clearInterval(interval);
   }, []);
 
   // Group posters by city + country
-  const groupedPosters: PosterGroup[] = posters.reduce(
-    (groups: PosterGroup[], poster) => {
+  const groupedPosters = posters.reduce(
+    (groups: { city: string; country: string; posters: PosterInfo[] }[], poster) => {
       const key = `${poster.city}-${poster.country}`;
       const existing = groups.find((g) => `${g.city}-${g.country}` === key);
       if (existing) {
@@ -257,7 +533,6 @@ export default function Dashboard() {
   );
 
   const handleClone = (poster: PosterInfo) => {
-    // Create form data from poster config and navigate to create page
     const formData: Partial<PosterFormData> = {
       city: poster.city,
       country: poster.country,
@@ -269,9 +544,31 @@ export default function Dashboard() {
       subtitleFont: poster.subtitleFont,
     };
 
-    // Store in sessionStorage for the create page to pick up
     sessionStorage.setItem("clonePosterData", JSON.stringify(formData));
     navigate("/create");
+  };
+
+  const handleDelete = async () => {
+    if (!deletePoster) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/posters/delete/${deletePoster.filename}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete poster");
+      }
+
+      // Remove from local state
+      setPosters((prev) => prev.filter((p) => p.filename !== deletePoster.filename));
+      setDeletePoster(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete poster");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -296,6 +593,26 @@ export default function Dashboard() {
           )}
         </p>
         <div className="flex gap-2">
+          {/* View Toggle */}
+          <div className="flex border rounded-lg p-1">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("grid")}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("table")}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -325,21 +642,9 @@ export default function Dashboard() {
       )}
 
       {loading ? (
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <Skeleton className="w-5 h-5 rounded" />
-                <div>
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-4 w-24 mt-1" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <PosterSkeleton />
-                <PosterSkeleton />
-              </div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <PosterGridSkeleton key={i} />
           ))}
         </div>
       ) : groupedPosters.length === 0 ? (
@@ -362,16 +667,36 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {groupedPosters.map((group, index) => (
-            <LocationGroup
-              key={`${group.city}-${group.country}`}
-              group={group}
-              onClone={handleClone}
-              defaultExpanded={index < 3}
-            />
-          ))}
-        </div>
+        groupedPosters.map((group) => (
+          <LocationSection
+            key={`${group.city}-${group.country}`}
+            city={group.city}
+            country={group.country}
+            posters={group.posters}
+            viewMode={viewMode}
+            onClone={handleClone}
+            onPreview={setPreviewPoster}
+            onDelete={setDeletePoster}
+          />
+        ))
+      )}
+
+      {/* Preview Modal */}
+      {previewPoster && (
+        <PreviewModal
+          poster={previewPoster}
+          onClose={() => setPreviewPoster(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletePoster && (
+        <DeleteConfirmModal
+          poster={deletePoster}
+          onConfirm={handleDelete}
+          onCancel={() => setDeletePoster(null)}
+          isDeleting={isDeleting}
+        />
       )}
     </>
   );

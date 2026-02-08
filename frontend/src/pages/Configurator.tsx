@@ -12,6 +12,7 @@ import {
   ThemeStep,
   DimensionsStep,
   ProgressView,
+  PosterPreview,
   type PosterFormData,
   type ProgressUpdate,
   type LocationMode,
@@ -24,6 +25,9 @@ const INITIAL_FORM_DATA: PosterFormData = {
   distance: 10000,
   format: "png",
   landscape: false,
+  border: 15,
+  titleFont: "Roboto",
+  subtitleFont: "Roboto",
 };
 
 export default function Configurator() {
@@ -47,7 +51,6 @@ export default function Configurator() {
         const parsed = JSON.parse(clonedData) as Partial<PosterFormData>;
         setFormData((prev) => ({ ...prev, ...parsed }));
         setIsCloned(true);
-        // Clear the storage after loading
         sessionStorage.removeItem("clonePosterData");
       } catch (e) {
         console.error("Failed to parse cloned poster data:", e);
@@ -189,72 +192,86 @@ export default function Configurator() {
 
       <StepIndicator currentStep={currentStep} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{["Location", "Style", "Output"][currentStep]}</CardTitle>
-          <CardDescription>{stepDescriptions[currentStep]}</CardDescription>
-        </CardHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Panel */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{["Location", "Style", "Output"][currentStep]}</CardTitle>
+              <CardDescription>{stepDescriptions[currentStep]}</CardDescription>
+            </CardHeader>
 
-        <CardContent className="min-h-[300px]">
-          {currentStep === 0 && (
-            <LocationStep
-              formData={formData}
-              updateFormData={updateFormData}
-              locationMode={locationMode}
-              setLocationMode={setLocationMode}
-            />
-          )}
-
-          {currentStep === 1 && (
-            <ThemeStep formData={formData} updateFormData={updateFormData} />
-          )}
-
-          {currentStep === 2 && (
-            <DimensionsStep formData={formData} updateFormData={updateFormData} />
-          )}
-        </CardContent>
-
-        <CardFooter className="flex justify-between pt-6 border-t">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-            disabled={currentStep === 0}
-            className="gap-2"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </Button>
-
-          {currentStep < 2 ? (
-            <Button
-              onClick={() => setCurrentStep((prev) => prev + 1)}
-              disabled={!canProceed()}
-              className="gap-2"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !canProceed()}
-              className="gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  {isCloned ? "Create Version" : "Create Poster"}
-                </>
+            <CardContent className="min-h-[300px]">
+              {currentStep === 0 && (
+                <LocationStep
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  locationMode={locationMode}
+                  setLocationMode={setLocationMode}
+                />
               )}
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
+
+              {currentStep === 1 && (
+                <ThemeStep formData={formData} updateFormData={updateFormData} />
+              )}
+
+              {currentStep === 2 && (
+                <DimensionsStep formData={formData} updateFormData={updateFormData} />
+              )}
+            </CardContent>
+
+            <CardFooter className="flex justify-between pt-6 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                disabled={currentStep === 0}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Back
+              </Button>
+
+              {currentStep < 2 ? (
+                <Button
+                  onClick={() => setCurrentStep((prev) => prev + 1)}
+                  disabled={!canProceed()}
+                  className="gap-2"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !canProceed()}
+                  className="gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      {isCloned ? "Create Version" : "Create Poster"}
+                    </>
+                  )}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
+
+        {/* Preview Panel */}
+        <div className="lg:col-span-1">
+          <Card className="h-full">
+            <CardContent className="pt-6 h-full">
+              <PosterPreview formData={formData} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </>
   );
 }

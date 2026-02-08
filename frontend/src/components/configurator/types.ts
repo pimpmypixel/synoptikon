@@ -80,7 +80,10 @@ export const THEMES = [
 ] as const;
 
 export const DISTANCE_OPTIONS = [
-  { value: 4000, label: "4km", description: "Neighborhood view" },
+  { value: 1000, label: "1km", description: "Street level" },
+  { value: 2000, label: "2km", description: "Block view" },
+  { value: 3000, label: "3km", description: "Close-up" },
+  { value: 4000, label: "4km", description: "Neighborhood" },
   { value: 6000, label: "6km", description: "Small area" },
   { value: 8000, label: "8km", description: "City center" },
   { value: 10000, label: "10km", description: "Medium city" },

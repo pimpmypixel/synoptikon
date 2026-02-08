@@ -6,3 +6,6 @@ venv
 .mermaid
 dist
 *.pyc
+*.db
+*.db-wal
+*.db-shm

@@ -112,10 +112,7 @@ function SimulatedMap({ theme, rotation = 0 }: { theme: string; rotation?: numbe
 }
 
 // OpenStreetMap embed for real location preview
-function MapEmbed({ lat, lon, zoom = 14 }: { lat: number; lon: number; zoom?: number }) {
-  // Use OpenStreetMap static tiles
-  const tileUrl = `https://tile.openstreetmap.org/${zoom}/${Math.floor((lon + 180) / 360 * Math.pow(2, zoom))}/${Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom))}.png`;
-
+function MapEmbed({ lat, lon }: { lat: number; lon: number; zoom?: number }) {
   return (
     <div className="w-full h-full relative bg-muted overflow-hidden">
       <iframe
@@ -173,7 +170,7 @@ export function PosterPreview({ formData, locationMode }: PosterPreviewProps) {
     if (formData.googleMapsUrl) {
       return parseGoogleMapsUrl(formData.googleMapsUrl);
     }
-    if (formData.lat !== undefined && formData.lon !== undefined) {
+    if (formData.lat != null && formData.lon != null) {
       return { lat: formData.lat, lon: formData.lon };
     }
     return null;

@@ -1,12 +1,13 @@
 import { EventConfig } from 'motia'
 import fs from 'fs/promises'
 import path from 'path'
+import { getPosterByFilename, deletePosterByFilename } from './db'
 
 export const config: EventConfig = {
   type: 'event',
   name: 'ProcessPosterDeletion',
   subscribes: ['poster-deletion-requested'],
-  emits: ['poster-deletion-completed', 'poster-deletion-failed'],
+  emits: [],
   flows: ['poster-creation-flow'],
 }
 
@@ -20,57 +21,45 @@ export const handler = async (input: DeletionRequest, context: any) => {
 
   context.logger.info('Processing poster deletion', { filename, requestId })
 
-  // Validate filename
-  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    await context.emit({
-      topic: 'poster-deletion-failed',
-      data: {
-        requestId,
-        filename,
-        error: 'Invalid filename',
-      },
+  const updateStatus = async (status: 'pending' | 'completed' | 'failed', error?: string) => {
+    await context.streams.deletionProgress.set(requestId, 'status', {
+      requestId,
+      filename,
+      status,
+      error,
+      timestamp: new Date().toISOString(),
     })
+  }
+
+  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    await updateStatus('failed', 'Invalid filename')
     return
   }
 
   const postersDir = path.join(process.cwd(), '..', 'posters')
-  const filePath = path.join(postersDir, filename)
-  const metadataPath = filePath.replace(/\.(png|svg|pdf)$/i, '.json')
 
   try {
-    // Check if file exists
-    await fs.access(filePath)
+    // Look up poster record to find thumbnail
+    const record = getPosterByFilename(filename)
 
     // Delete the poster file
+    const filePath = path.join(postersDir, filename)
     await fs.unlink(filePath)
     context.logger.info('Deleted poster file', { filePath })
 
-    // Try to delete the metadata file if it exists
-    try {
-      await fs.unlink(metadataPath)
-      context.logger.info('Deleted metadata file', { metadataPath })
-    } catch {
-      // Metadata file may not exist, that's ok
+    // Delete thumbnail if it exists
+    if (record?.thumbnail) {
+      try {
+        await fs.unlink(path.join(postersDir, record.thumbnail))
+      } catch { /* ok */ }
     }
 
-    await context.emit({
-      topic: 'poster-deletion-completed',
-      data: {
-        requestId,
-        filename,
-        success: true,
-      },
-    })
+    // Delete from SQLite
+    deletePosterByFilename(filename)
+
+    await updateStatus('completed')
   } catch (error: any) {
     context.logger.error('Failed to delete poster', { error: error.message, filename })
-
-    await context.emit({
-      topic: 'poster-deletion-failed',
-      data: {
-        requestId,
-        filename,
-        error: error.code === 'ENOENT' ? 'Poster not found' : 'Failed to delete poster',
-      },
-    })
+    await updateStatus('failed', error.code === 'ENOENT' ? 'Poster not found' : 'Failed to delete poster')
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMotiaStream } from "@motiadev/stream-client-react";
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from "@/components/page-header";
@@ -16,7 +16,6 @@ import {
   PenTool,
   Clock,
   Copy,
-  Type,
   LayoutGrid,
   List,
   Eye,
@@ -36,9 +35,17 @@ interface PosterInfo {
   landscape: boolean;
   titleFont?: string;
   subtitleFont?: string;
+  paperSize?: string;
+  rotation?: number;
+  border?: number;
+  lat?: number;
+  lon?: number;
+  widthCm?: number;
+  heightCm?: number;
   createdAt: string;
   fileSize: number;
   url: string;
+  thumbnailUrl?: string;
 }
 
 type ViewMode = "grid" | "table";
@@ -102,6 +109,12 @@ function PreviewModal({
           <img
             src={poster.url}
             alt={`${poster.city} poster`}
+            className="max-w-full max-h-[85vh] object-contain"
+          />
+        ) : poster.thumbnailUrl ? (
+          <img
+            src={poster.thumbnailUrl}
+            alt={`${poster.city} poster preview`}
             className="max-w-full max-h-[85vh] object-contain"
           />
         ) : (
@@ -207,13 +220,13 @@ function PosterGridCard({
         className="aspect-[3/4] bg-muted relative cursor-pointer"
         onClick={onPreview}
       >
-        {poster.format === "png" ? (
+        {poster.format === "png" || poster.thumbnailUrl ? (
           <>
             {!imageLoaded && !imageError && (
               <Skeleton className="absolute inset-0" />
             )}
             <img
-              src={poster.url}
+              src={poster.thumbnailUrl || poster.url}
               alt={`${poster.city} poster`}
               className={cn(
                 "w-full h-full object-cover transition-opacity",
@@ -222,6 +235,11 @@ function PosterGridCard({
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
             />
+            {poster.format !== "png" && (
+              <Badge variant="secondary" className="absolute bottom-2 right-2 text-[10px]">
+                {poster.format.toUpperCase()}
+              </Badge>
+            )}
           </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center">
@@ -247,66 +265,44 @@ function PosterGridCard({
       </div>
 
       {/* Details */}
-      <div className="p-3">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+      <div className="p-2">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
           <span>{poster.distance / 1000}km</span>
           <span>•</span>
-          <span>{poster.landscape ? "Landscape" : "Portrait"}</span>
+          <span>{poster.landscape ? "Land" : "Port"}</span>
           <span>•</span>
           <span>{formatFileSize(poster.fileSize)}</span>
         </div>
 
-        {(poster.titleFont || poster.subtitleFont) && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-            <Type className="w-3 h-3" />
-            <span className="truncate">
-              {poster.titleFont}
-              {poster.titleFont && poster.subtitleFont && " / "}
-              {poster.subtitleFont}
-            </span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-3">
-          <Clock className="w-3 h-3" />
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-2">
+          <Clock className="w-2.5 h-2.5" />
           {new Date(poster.createdAt).toLocaleDateString()}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs flex-1"
-            onClick={onPreview}
-          >
-            <Eye className="w-3 h-3 mr-1" />
-            Preview
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs flex-1"
+            className="h-6 text-[10px] px-1.5 flex-1"
             onClick={onClone}
           >
-            <Copy className="w-3 h-3 mr-1" />
+            <Copy className="w-2.5 h-2.5 mr-0.5" />
             Clone
           </Button>
-        </div>
-        <div className="flex gap-2 mt-2">
-          <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" asChild>
+          <Button size="sm" variant="secondary" className="h-6 text-[10px] px-1.5 flex-1" asChild>
             <a href={poster.url} download={poster.filename}>
-              <Download className="w-3 h-3 mr-1" />
-              Download
+              <Download className="w-2.5 h-2.5 mr-0.5" />
+              DL
             </a>
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="h-6 px-1 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={onDelete}
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="w-2.5 h-2.5" />
           </Button>
         </div>
       </div>
@@ -432,7 +428,7 @@ function LocationSection({
 
       {/* Grid View */}
       {viewMode === "grid" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {posters.map((poster) => (
             <PosterGridCard
               key={poster.filename}
@@ -543,9 +539,15 @@ export default function Dashboard() {
       distance: poster.distance,
       format: poster.format as "png" | "svg" | "pdf",
       landscape: poster.landscape,
-      titleFont: poster.titleFont,
-      subtitleFont: poster.subtitleFont,
-      paperSize: "A4", // Default to A4 when cloning
+      titleFont: poster.titleFont || "Roboto",
+      subtitleFont: poster.subtitleFont || "Roboto",
+      paperSize: poster.paperSize || "A4",
+      rotation: poster.rotation || 0,
+      border: poster.border ?? 0,
+      lat: poster.lat,
+      lon: poster.lon,
+      widthCm: poster.widthCm,
+      heightCm: poster.heightCm,
     };
 
     sessionStorage.setItem("clonePosterData", JSON.stringify(formData));
@@ -692,8 +694,8 @@ export default function Dashboard() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {[...Array(8)].map((_, i) => (
             <PosterGridSkeleton key={i} />
           ))}
         </div>

@@ -3,6 +3,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { MapPin, Navigation, Link2 } from "lucide-react";
 import type { PosterFormData, LocationMode } from "./types";
+import { DISTANCE_OPTIONS } from "./types";
+import { RotationDial } from "./RotationDial";
 
 interface LocationStepProps {
   formData: PosterFormData;
@@ -165,6 +167,43 @@ export function LocationStep({ formData, updateFormData, locationMode, setLocati
           </div>
         </div>
       )}
+
+      {/* Map Coverage */}
+      <div className="space-y-3 pt-4 border-t">
+        <Label className="text-base">Map Coverage</Label>
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+          {DISTANCE_OPTIONS.map((opt) => {
+            const isSelected = formData.distance === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => updateFormData("distance", opt.value)}
+                className={cn(
+                  "flex flex-col items-center py-2 px-2 rounded-lg border-2 transition-all",
+                  "hover:border-primary/50",
+                  isSelected ? "border-primary bg-primary/5" : "border-muted"
+                )}
+              >
+                <span className={cn("text-sm font-bold", isSelected ? "text-primary" : "text-foreground")}>
+                  {opt.label}
+                </span>
+                <span className="text-[10px] text-muted-foreground hidden sm:block">{opt.description}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Map Rotation */}
+      <div className="space-y-3">
+        <Label className="text-base">Map Rotation</Label>
+        <RotationDial
+          value={formData.rotation || 0}
+          onChange={(value) => updateFormData("rotation", value)}
+          size={100}
+        />
+      </div>
     </div>
   );
 }

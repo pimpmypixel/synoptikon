@@ -16,6 +16,7 @@ import {
   type PosterFormData,
   type ProgressUpdate,
   type LocationMode,
+  PAPER_SIZES,
 } from "@/components/configurator";
 
 const INITIAL_FORM_DATA: PosterFormData = {
@@ -25,7 +26,7 @@ const INITIAL_FORM_DATA: PosterFormData = {
   distance: 10000,
   format: "png",
   landscape: false,
-  border: 5,
+  border: 0,
   titleFont: "Roboto",
   subtitleFont: "Roboto",
   paperSize: "A4",
@@ -53,6 +54,10 @@ export default function Configurator() {
         const parsed = JSON.parse(clonedData) as Partial<PosterFormData>;
         setFormData((prev) => ({ ...prev, ...parsed }));
         setIsCloned(true);
+        // Set location mode to coords if lat/lon are present
+        if (parsed.lat != null && parsed.lon != null) {
+          setLocationMode("coords");
+        }
         sessionStorage.removeItem("clonePosterData");
       } catch (e) {
         console.error("Failed to parse cloned poster data:", e);
@@ -88,8 +93,27 @@ export default function Configurator() {
     setError(null);
 
     try {
+      // Calculate actual dimensions based on paper size and orientation
+      let widthCm = formData.widthCm;
+      let heightCm = formData.heightCm;
+
+      if (formData.paperSize !== "custom") {
+        const paper = PAPER_SIZES.find((p) => p.id === formData.paperSize);
+        if (paper) {
+          if (formData.landscape) {
+            widthCm = paper.height;
+            heightCm = paper.width;
+          } else {
+            widthCm = paper.width;
+            heightCm = paper.height;
+          }
+        }
+      }
+
       const payload: PosterFormData = {
         ...formData,
+        widthCm,
+        heightCm,
         lat: locationMode === "coords" ? formData.lat : undefined,
         lon: locationMode === "coords" ? formData.lon : undefined,
         googleMapsUrl: locationMode === "google" ? formData.googleMapsUrl : undefined,
@@ -267,8 +291,8 @@ export default function Configurator() {
 
         {/* Preview Panel */}
         <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardContent className="pt-6 h-full">
+          <Card className="sticky top-4">
+            <CardContent className="pt-6">
               <PosterPreview formData={formData} locationMode={locationMode} />
             </CardContent>
           </Card>

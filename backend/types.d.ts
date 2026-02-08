@@ -9,18 +9,19 @@ import { EventHandler, ApiRouteHandler, ApiResponse, MotiaStream, CronHandler } 
 declare module 'motia' {
   interface FlowContextStateStreams {
     'posterProgress': MotiaStream<{ status: 'queued' | 'fetching_data' | 'downloading_streets' | 'downloading_parks' | 'downloading_water' | 'rendering' | 'saving' | 'completed' | 'error'; message: string; progress: number; jobId: string; outputFile?: string; error?: string; timestamp: string }>
+    'deletionProgress': MotiaStream<{ requestId: string; filename: string; status: 'pending' | 'completed' | 'failed'; error?: string; timestamp: string }>
   }
 
   interface Handlers {
     'ServePosterFile': ApiRouteHandler<Record<string, unknown>, unknown, never>
+    'ListPosters': ApiRouteHandler<Record<string, unknown>, unknown, never>
     'ListPosterJobs': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, { jobs: Array<{ jobId: string; city: string; country: string; theme: string; format: string; status: string; progress: number; message: string; outputFile: string | unknown; error: string | unknown; createdAt: string; updatedAt: string }> }>, never>
-    'CreatePoster': ApiRouteHandler<{ city: string; country: string; lat?: number; lon?: number; googleMapsUrl?: string; theme: string; distance: number; border?: number; format: 'png' | 'svg' | 'pdf'; landscape: boolean; fontFamily?: string; widthCm?: number; heightCm?: number }, ApiResponse<200, { success: boolean; jobId: string; message: string }> | ApiResponse<400, { error: string }>, { topic: 'create-poster'; data: never }>
+    'ProcessPosterDeletion': EventHandler<never, never>
+    'DeletePoster': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'poster-deletion-requested'; data: never }>
+    'CreatePoster': ApiRouteHandler<{ city: string; country: string; lat?: number; lon?: number; googleMapsUrl?: string; theme: string; distance: number; border?: number; format: 'png' | 'svg' | 'pdf'; landscape: boolean; titleFont?: string; subtitleFont?: string; paperSize?: string; rotation?: number; widthCm?: number; heightCm?: number }, ApiResponse<200, { success: boolean; jobId: string; message: string }> | ApiResponse<400, { error: string }>, { topic: 'create-poster'; data: never }>
     'ProcessPosterCreation': EventHandler<never, never>
     'ProcessGreeting': EventHandler<{ timestamp: string; appName: string; greetingPrefix: string; requestId: string }, never>
     'HelloAPI': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, { message: string; status: string; appName: string }>, { topic: 'process-greeting'; data: { timestamp: string; appName: string; greetingPrefix: string; requestId: string } }>
-    'ListPosters': ApiRouteHandler<Record<string, unknown>, unknown, never>
-    'DeletePoster': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'poster-deletion-requested'; data: never }>
-    'ProcessPosterDeletion': EventHandler<never, never>
   }
     
 }

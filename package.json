@@ -11,6 +11,7 @@
     "dev:backend": "cd backend && bunx motia dev --host 0.0.0.0 -p 3001",
     "dev:proxy": "bun run proxy.ts",
     "dev:frontend": "cd frontend && vite --host 0.0.0.0",
+    "predev": "echo 'Cleaning ports 3000,3001...' && lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; sleep 1; echo 'Ready'",
     "dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
     "build:frontend": "cd frontend && vite build",
     "build": "tsc -b && bun run build:frontend"

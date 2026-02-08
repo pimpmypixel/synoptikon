@@ -14,6 +14,7 @@ export interface PosterFormData {
   paperSize: string;
   widthCm?: number;
   heightCm?: number;
+  rotation?: number; // 0-360 degrees
 }
 
 // Standard paper sizes in cm (portrait orientation)

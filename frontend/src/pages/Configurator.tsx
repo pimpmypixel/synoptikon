@@ -29,6 +29,7 @@ const INITIAL_FORM_DATA: PosterFormData = {
   titleFont: "Roboto",
   subtitleFont: "Roboto",
   paperSize: "A4",
+  rotation: 0,
 };
 
 export default function Configurator() {
@@ -268,7 +269,7 @@ export default function Configurator() {
         <div className="lg:col-span-1">
           <Card className="h-full">
             <CardContent className="pt-6 h-full">
-              <PosterPreview formData={formData} />
+              <PosterPreview formData={formData} locationMode={locationMode} />
             </CardContent>
           </Card>
         </div>

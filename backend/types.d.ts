@@ -19,7 +19,8 @@ declare module 'motia' {
     'ProcessGreeting': EventHandler<{ timestamp: string; appName: string; greetingPrefix: string; requestId: string }, never>
     'HelloAPI': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, { message: string; status: string; appName: string }>, { topic: 'process-greeting'; data: { timestamp: string; appName: string; greetingPrefix: string; requestId: string } }>
     'ListPosters': ApiRouteHandler<Record<string, unknown>, unknown, never>
-    'DeletePoster': ApiRouteHandler<Record<string, unknown>, unknown, never>
+    'DeletePoster': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'poster-deletion-requested'; data: never }>
+    'ProcessPosterDeletion': EventHandler<never, never>
   }
     
 }

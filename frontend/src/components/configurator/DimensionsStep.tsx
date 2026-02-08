@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { RectangleVertical, RectangleHorizontal, Image, FileText, FileCode, Check } from "lucide-react";
 import type { PosterFormData } from "./types";
 import { PAPER_SIZES } from "./types";
+import { RotationDial } from "./RotationDial";
 
 interface DimensionsStepProps {
   formData: PosterFormData;
@@ -199,26 +200,38 @@ export function DimensionsStep({ formData, updateFormData }: DimensionsStepProps
         </div>
       </div>
 
-      {/* Border */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="border" className="text-base">Border Width</Label>
-          <span className="text-xs text-muted-foreground">(optional)</span>
+      {/* Border and Rotation row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Border */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="border" className="text-base">Border Width</Label>
+          </div>
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min={0}
+              max={15}
+              value={formData.border || 0}
+              onChange={(e) => updateFormData("border", parseInt(e.target.value))}
+              className="flex-1 max-w-xs h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <span className="text-sm font-medium w-12 text-right">{formData.border || 0}%</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            White margin around the poster
+          </p>
         </div>
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min={0}
-            max={15}
-            value={formData.border || 0}
-            onChange={(e) => updateFormData("border", parseInt(e.target.value))}
-            className="flex-1 max-w-xs h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+
+        {/* Map Rotation */}
+        <div className="space-y-2">
+          <Label className="text-base">Map Rotation</Label>
+          <RotationDial
+            value={formData.rotation || 0}
+            onChange={(value) => updateFormData("rotation", value)}
+            size={100}
           />
-          <span className="text-sm font-medium w-12 text-right">{formData.border || 0}%</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          White margin around the poster
-        </p>
       </div>
     </div>
   );

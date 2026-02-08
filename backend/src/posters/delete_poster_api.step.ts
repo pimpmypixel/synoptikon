@@ -1,13 +1,12 @@
 import { ApiRouteConfig } from 'motia'
-import fs from 'fs/promises'
-import path from 'path'
+import { randomUUID } from 'crypto'
 
 export const config: ApiRouteConfig = {
   type: 'api',
   name: 'DeletePoster',
   path: '/posters/delete/:filename',
   method: 'DELETE',
-  emits: [],
+  emits: ['poster-deletion-requested'],
   flows: ['poster-creation-flow'],
 }
 
@@ -29,42 +28,25 @@ export const handler = async (req: any, context: any) => {
     }
   }
 
-  const postersDir = path.join(process.cwd(), '..', 'posters')
-  const filePath = path.join(postersDir, filename)
-  const metadataPath = filePath.replace(/\.(png|svg|pdf)$/i, '.json')
+  const requestId = randomUUID()
 
-  try {
-    // Check if file exists
-    try {
-      await fs.access(filePath)
-    } catch {
-      return {
-        status: 404,
-        body: { error: 'Poster not found' },
-      }
-    }
+  // Emit deletion event for async processing
+  await context.emit({
+    topic: 'poster-deletion-requested',
+    data: {
+      filename,
+      requestId,
+    },
+  })
 
-    // Delete the poster file
-    await fs.unlink(filePath)
+  context.logger.info('Poster deletion requested', { filename, requestId })
 
-    // Try to delete the metadata file if it exists
-    try {
-      await fs.unlink(metadataPath)
-    } catch {
-      // Metadata file may not exist, that's ok
-    }
-
-    context.logger.info('Poster deleted', { filename })
-
-    return {
-      status: 200,
-      body: { success: true, filename },
-    }
-  } catch (error) {
-    context.logger.error('Failed to delete poster', { error, filename })
-    return {
-      status: 500,
-      body: { error: 'Failed to delete poster' },
-    }
+  return {
+    status: 202,
+    body: {
+      success: true,
+      requestId,
+      message: 'Deletion request queued',
+    },
   }
 }

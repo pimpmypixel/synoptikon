@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMotiaStream } from "@motiadev/stream-client-react";
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import {
   Download,
   Image as ImageIcon,
   RefreshCw,
   MapPin,
-  Palette,
   PenTool,
   Clock,
   Copy,
@@ -480,6 +481,8 @@ function LocationSection({
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { stream } = useMotiaStream();
+  const { addToast, updateToast } = useToast();
   const [posters, setPosters] = useState<PosterInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -552,9 +555,14 @@ export default function Dashboard() {
   const handleDelete = async () => {
     if (!deletePoster) return;
 
+    const filename = deletePoster.filename;
     setIsDeleting(true);
+
+    // Show loading toast
+    const toastId = addToast(`Deleting ${deletePoster.city} poster...`, "loading");
+
     try {
-      const response = await fetch(`/posters/delete/${deletePoster.filename}`, {
+      const response = await fetch(`/posters/delete/${filename}`, {
         method: "DELETE",
       });
 
@@ -562,11 +570,41 @@ export default function Dashboard() {
         throw new Error("Failed to delete poster");
       }
 
-      // Remove from local state
-      setPosters((prev) => prev.filter((p) => p.filename !== deletePoster.filename));
+      const data = await response.json();
+      const { requestId } = data;
+
+      // Subscribe to deletion progress
+      if (stream) {
+        const subscription = stream.subscribeGroup("deletionProgress", requestId);
+
+        subscription.addChangeListener((updates: any) => {
+          if (updates && updates.length > 0) {
+            const update = updates[0];
+            if (update.status === "completed") {
+              updateToast(toastId, `Poster deleted successfully`, "success");
+              setPosters((prev) => prev.filter((p) => p.filename !== filename));
+              subscription.close();
+            } else if (update.status === "failed") {
+              updateToast(toastId, update.error || "Failed to delete poster", "error");
+              subscription.close();
+            }
+          }
+        });
+
+        // Timeout fallback - remove from UI after 5 seconds anyway
+        setTimeout(() => {
+          setPosters((prev) => prev.filter((p) => p.filename !== filename));
+          subscription.close();
+        }, 5000);
+      } else {
+        // Fallback if no stream - just remove immediately
+        updateToast(toastId, `Poster deleted successfully`, "success");
+        setPosters((prev) => prev.filter((p) => p.filename !== filename));
+      }
+
       setDeletePoster(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete poster");
+      updateToast(toastId, err instanceof Error ? err.message : "Failed to delete poster", "error");
     } finally {
       setIsDeleting(false);
     }

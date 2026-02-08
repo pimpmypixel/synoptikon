@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { THEME_COLORS } from "./theme-colors";
 import type { PosterFormData } from "./types";
 import { PAPER_SIZES } from "./types";
+import { MapPin } from "lucide-react";
 
 interface PosterPreviewProps {
   formData: PosterFormData;
+  locationMode?: "city" | "coords" | "google";
 }
 
 // Load Google Font dynamically
@@ -24,12 +26,51 @@ function useGoogleFont(fontFamily: string | undefined) {
   }, [fontFamily]);
 }
 
+// Parse Google Maps URL to extract coordinates
+function parseGoogleMapsUrl(url: string): { lat: number; lon: number; zoom?: number } | null {
+  if (!url) return null;
+
+  // Format: https://www.google.com/maps/@48.8566,2.3522,15z
+  const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),(\d+\.?\d*)?z?/);
+  if (atMatch) {
+    return {
+      lat: parseFloat(atMatch[1]),
+      lon: parseFloat(atMatch[2]),
+      zoom: atMatch[3] ? parseFloat(atMatch[3]) : undefined,
+    };
+  }
+
+  // Format: https://www.google.com/maps/place/.../@48.8566,2.3522,15z
+  const placeMatch = url.match(/place\/[^@]*@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (placeMatch) {
+    return {
+      lat: parseFloat(placeMatch[1]),
+      lon: parseFloat(placeMatch[2]),
+    };
+  }
+
+  // Format with !3d and !4d: ...!3d48.8566!4d2.3522
+  const dMatch = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+  if (dMatch) {
+    return {
+      lat: parseFloat(dMatch[1]),
+      lon: parseFloat(dMatch[2]),
+    };
+  }
+
+  return null;
+}
+
 // Simulated map SVG with roads, water, and parks
-function SimulatedMap({ theme }: { theme: string }) {
+function SimulatedMap({ theme, rotation = 0 }: { theme: string; rotation?: number }) {
   const colors = THEME_COLORS[theme] || THEME_COLORS.feature_based;
 
   return (
-    <svg viewBox="0 0 200 200" className="w-full h-full">
+    <svg
+      viewBox="0 0 200 200"
+      className="w-full h-full"
+      style={{ transform: `rotate(${rotation}deg)` }}
+    >
       {/* Background */}
       <rect width="200" height="200" fill={colors.bg} />
 
@@ -70,13 +111,37 @@ function SimulatedMap({ theme }: { theme: string }) {
   );
 }
 
-export function PosterPreview({ formData }: PosterPreviewProps) {
+// OpenStreetMap embed for real location preview
+function MapEmbed({ lat, lon, zoom = 14 }: { lat: number; lon: number; zoom?: number }) {
+  // Use OpenStreetMap static tiles
+  const tileUrl = `https://tile.openstreetmap.org/${zoom}/${Math.floor((lon + 180) / 360 * Math.pow(2, zoom))}/${Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom))}.png`;
+
+  return (
+    <div className="w-full h-full relative bg-muted overflow-hidden">
+      <iframe
+        title="Map Preview"
+        width="100%"
+        height="100%"
+        frameBorder="0"
+        scrolling="no"
+        src={`https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.02}%2C${lat - 0.015}%2C${lon + 0.02}%2C${lat + 0.015}&layer=mapnik&marker=${lat}%2C${lon}`}
+        style={{ border: 0 }}
+      />
+      <div className="absolute bottom-1 right-1 text-[8px] bg-white/80 px-1 rounded">
+        OSM
+      </div>
+    </div>
+  );
+}
+
+export function PosterPreview({ formData, locationMode }: PosterPreviewProps) {
   useGoogleFont(formData.titleFont);
   useGoogleFont(formData.subtitleFont);
 
   const colors = THEME_COLORS[formData.theme] || THEME_COLORS.feature_based;
   const borderPercent = formData.border ?? 5;
   const isLandscape = formData.landscape;
+  const rotation = formData.rotation ?? 0;
 
   // Get paper size dimensions
   const paperSize = PAPER_SIZES.find((p) => p.id === formData.paperSize) || PAPER_SIZES[0];
@@ -103,11 +168,24 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
   const titleFontFamily = formData.titleFont || "Roboto";
   const subtitleFontFamily = formData.subtitleFont || "Roboto";
 
+  // Parse coordinates from Google Maps URL or use direct coordinates
+  const coordinates = useMemo(() => {
+    if (formData.googleMapsUrl) {
+      return parseGoogleMapsUrl(formData.googleMapsUrl);
+    }
+    if (formData.lat !== undefined && formData.lon !== undefined) {
+      return { lat: formData.lat, lon: formData.lon };
+    }
+    return null;
+  }, [formData.googleMapsUrl, formData.lat, formData.lon]);
+
+  const showRealMap = coordinates && (locationMode === "google" || locationMode === "coords");
+
   return (
     <div className="flex flex-col h-full">
       <h3 className="text-sm font-medium text-muted-foreground mb-3">Live Preview</h3>
 
-      <div className="flex-1 flex items-center justify-center p-4 bg-muted/30 rounded-lg">
+      <div className="flex-1 flex items-center justify-center p-4 bg-muted/30 rounded-lg min-h-[280px]">
         <div
           className={cn(
             "relative shadow-xl transition-all duration-300",
@@ -117,8 +195,8 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
             aspectRatio,
             width: isLandscape ? "100%" : "auto",
             height: isLandscape ? "auto" : "100%",
-            maxWidth: isLandscape ? "100%" : "240px",
-            maxHeight: isLandscape ? "180px" : "320px",
+            maxWidth: isLandscape ? "100%" : "200px",
+            maxHeight: isLandscape ? "150px" : "280px",
             backgroundColor: colors.bg,
             padding: `${borderPercent}%`,
           }}
@@ -133,7 +211,16 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
 
           {/* Map area */}
           <div className="relative w-full h-full overflow-hidden">
-            <SimulatedMap theme={formData.theme} />
+            {showRealMap && coordinates ? (
+              <div
+                className="w-full h-full"
+                style={{ transform: `rotate(${rotation}deg)` }}
+              >
+                <MapEmbed lat={coordinates.lat} lon={coordinates.lon} />
+              </div>
+            ) : (
+              <SimulatedMap theme={formData.theme} rotation={rotation} />
+            )}
 
             {/* Title overlay at bottom */}
             <div
@@ -165,6 +252,14 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
         </div>
       </div>
 
+      {/* Location indicator */}
+      {coordinates && (
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <MapPin className="w-3 h-3" />
+          <span>{coordinates.lat.toFixed(4)}, {coordinates.lon.toFixed(4)}</span>
+        </div>
+      )}
+
       {/* Preview info */}
       <div className="mt-3 text-xs text-muted-foreground space-y-1">
         <div className="flex justify-between">
@@ -174,6 +269,10 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
         <div className="flex justify-between">
           <span>Theme:</span>
           <span className="capitalize">{formData.theme.replace(/_/g, " ")}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Rotation:</span>
+          <span>{rotation}°</span>
         </div>
         <div className="flex justify-between">
           <span>Border:</span>
@@ -186,10 +285,6 @@ export function PosterPreview({ formData }: PosterPreviewProps) {
         <div className="flex justify-between">
           <span>Subtitle:</span>
           <span>{subtitleFontFamily}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Distance:</span>
-          <span>{formData.distance / 1000}km</span>
         </div>
       </div>
     </div>

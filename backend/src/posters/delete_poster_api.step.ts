@@ -1,4 +1,4 @@
-import { ApiRouteConfig } from 'motia'
+import type { ApiRouteConfig } from 'motia'
 import { randomUUID } from 'crypto'
 
 export const config: ApiRouteConfig = {

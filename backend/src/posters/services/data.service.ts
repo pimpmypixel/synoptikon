@@ -1,4 +1,4 @@
-import { IDataService } from '../interfaces'
+import type { IDataService } from '../interfaces'
 import { createHash } from 'crypto'
 
 interface CacheEntry<T> {

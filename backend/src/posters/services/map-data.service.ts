@@ -1,9 +1,10 @@
-import { IMapPosterService } from '../interfaces'
+import type { IMapPosterService } from '../interfaces'
 import { dataService } from './data.service'
 import type { MapPosterConfig, MapTheme, StreetNetwork, GeoFeature } from '../types'
 
 interface OverpassResponse {
   elements: OverpassElement[]
+  remark?: string
 }
 
 interface OverpassElement {
@@ -148,7 +149,7 @@ export class MapDataService {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
 
-        const data = await response.json()
+        const data = await response.json() as OverpassResponse
         
         if (data.remark) {
           console.warn('Overpass API warning:', data.remark)
@@ -207,12 +208,12 @@ export class MapDataService {
           
           if (fromNode && toNode) {
             edges.push({
-              from: element.nodes[i].toString(),
-              to: element.nodes[i + 1].toString(),
+              from: element.nodes[i]!.toString(),
+              to: element.nodes[i + 1]!.toString(),
               highway,
               geometry: [
-                [fromNode.lon, fromNode.lat],
-                [toNode.lon, toNode.lat]
+                [fromNode.lon!, fromNode.lat!],
+                [toNode.lon!, toNode.lat!]
               ]
             })
           }

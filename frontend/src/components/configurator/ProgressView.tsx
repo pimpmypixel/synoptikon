@@ -5,8 +5,9 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   Clock, MapPin, Route, Trees, Droplet, Palette, Save,
-  Check, AlertCircle, Loader2, Download, Plus, Sparkles
+  Check, AlertCircle, Loader2, Download, Plus, Sparkles, LayoutGrid
 } from "lucide-react";
+import { SaveToGoogleDrive } from "@/components/google-drive";
 import type { ProgressUpdate } from "./types";
 
 interface ProgressViewProps {
@@ -189,23 +190,41 @@ export function ProgressView({ jobId, progress, wsConnected, onReset }: Progress
                   />
                 </div>
               )}
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-3">
                 <Button asChild size="lg" className="gap-2">
                   <a href={getPosterUrl(progress.outputFile)} download>
                     <Download className="w-5 h-5" />
-                    Download Poster
+                    Download
                   </a>
                 </Button>
+                <SaveToGoogleDrive
+                  fileUrl={getPosterUrl(progress.outputFile)}
+                  fileName={progress.outputFile.split("/").pop() || "poster.png"}
+                  mimeType={
+                    progress.outputFile.endsWith(".pdf")
+                      ? "application/pdf"
+                      : progress.outputFile.endsWith(".svg")
+                        ? "image/svg+xml"
+                        : "image/png"
+                  }
+                  variant="outline"
+                />
               </div>
             </div>
           )}
 
           {/* Actions */}
           {(isCompleted || isError) && (
-            <div className="flex justify-center mt-6 pt-6 border-t">
+            <div className="flex justify-center gap-3 mt-6 pt-6 border-t">
               <Button variant="outline" onClick={onReset} className="gap-2">
                 <Plus className="w-4 h-4" />
-                Create Another Poster
+                Create Another
+              </Button>
+              <Button variant="outline" asChild className="gap-2">
+                <a href="/">
+                  <LayoutGrid className="w-4 h-4" />
+                  View Gallery
+                </a>
               </Button>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { INightSkyService, PosterResult } from '../interfaces'
+import type { INightSkyService, PosterResult } from '../interfaces'
 import { progressService } from './progress.service'
 import { dataService } from './data.service'
 import type { NightSkyConfig, CelestialObject, NightSkyTheme, PosterProgress } from '../types'
@@ -141,7 +141,7 @@ export class NightSkyService implements INightSkyService {
     
     if (celestialConfig.stars) {
       // Add stars from catalog
-      const stars = await this.fetchStarCatalog(celestialConfig.styling?.starMagnitudes?.minMagnitude || 6.5)
+      const stars = await this.fetchStarCatalog(6.5) // Default magnitude limit
       objects.push(...stars)
     }
 
@@ -162,7 +162,13 @@ export class NightSkyService implements INightSkyService {
       objects,
       lat,
       lon,
-      config.projection
+      {
+        type: 'stereographic',
+        centerLat: lat,
+        centerLon: lon,
+        fov: 180,
+        northUp: true
+      }
     )
 
     return projectedObjects
@@ -244,12 +250,12 @@ export class NightSkyService implements INightSkyService {
   private calculatePlanetPositions(jd: number, lat: number, lon: number): CelestialObject[] {
     // Simplified planet positions
     // In production, use precise ephemeris data
-    const planets = [
-      { id: 'mercury', type: 'planet', name: 'Mercury', magnitude: -0.42, position: { ra: 150, dec: 10 } },
-      { id: 'venus', type: 'planet', name: 'Venus', magnitude: -4.40, position: { ra: 200, dec: 15 } },
-      { id: 'mars', type: 'planet', name: 'Mars', magnitude: -2.94, position: { ra: 120, dec: 20 } },
-      { id: 'jupiter', type: 'planet', name: 'Jupiter', magnitude: -9.40, position: { ra: 80, dec: -5 } },
-      { id: 'saturn', type: 'planet', name: 'Saturn', magnitude: -8.88, position: { ra: 60, dec: -10 } },
+    const planets: CelestialObject[] = [
+      { id: 'mercury', type: 'planet' as const, name: 'Mercury', magnitude: -0.42, position: { ra: 150, dec: 10 } },
+      { id: 'venus', type: 'planet' as const, name: 'Venus', magnitude: -4.40, position: { ra: 200, dec: 15 } },
+      { id: 'mars', type: 'planet' as const, name: 'Mars', magnitude: -2.94, position: { ra: 120, dec: 20 } },
+      { id: 'jupiter', type: 'planet' as const, name: 'Jupiter', magnitude: -9.40, position: { ra: 80, dec: -5 } },
+      { id: 'saturn', type: 'planet' as const, name: 'Saturn', magnitude: -8.88, position: { ra: 60, dec: -10 } },
     ]
 
     return planets

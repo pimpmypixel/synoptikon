@@ -1,4 +1,4 @@
-import { ApiRouteConfig } from 'motia'
+import type { ApiRouteConfig } from 'motia'
 import { listPosters, type PosterRecord } from './db'
 
 export const config: ApiRouteConfig = {

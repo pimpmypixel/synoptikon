@@ -1,4 +1,4 @@
-import { IPosterService, PosterResult } from '../interfaces'
+import type { IPosterService, PosterResult } from '../interfaces'
 import { mapPosterService } from './map-poster-new.service'
 import { nightSkyService } from './night-sky-new.service'
 import { progressService } from './progress.service'
@@ -12,26 +12,30 @@ export class PosterService implements IPosterService {
    * Validate poster configuration
    */
   async validate(config: PosterConfig): Promise<boolean> {
-    if (config.type === 'map') {
-      return mapPosterService.validate(config as MapPosterConfig)
-    } else if (config.type === 'night-sky') {
-      return nightSkyService.validate(config as NightSkyConfig)
+    const posterConfig = config as any // Use any to bypass discriminated union issues
+    
+    if (posterConfig.type === 'map') {
+      return mapPosterService.validate(posterConfig as MapPosterConfig)
+    } else if (posterConfig.type === 'night-sky') {
+      return nightSkyService.validate(posterConfig as NightSkyConfig)
     }
     
-    throw new Error(`Unknown poster type: ${config.type}`)
+    throw new Error(`Unknown poster type: ${posterConfig.type}`)
   }
 
   /**
    * Create poster (main entry point)
    */
   async createPoster(config: PosterConfig): Promise<PosterResult> {
-    if (config.type === 'map') {
-      return mapPosterService.createPoster(config as MapPosterConfig)
-    } else if (config.type === 'night-sky') {
-      return nightSkyService.createPoster(config as NightSkyConfig)
+    const posterConfig = config as any // Use any to bypass discriminated union issues
+    
+    if (posterConfig.type === 'map') {
+      return mapPosterService.createPoster(posterConfig as MapPosterConfig)
+    } else if (posterConfig.type === 'night-sky') {
+      return nightSkyService.createPoster(posterConfig as NightSkyConfig)
     }
     
-    throw new Error(`Unknown poster type: ${config.type}`)
+    throw new Error(`Unknown poster type: ${posterConfig.type}`)
   }
 
   /**

@@ -1,4 +1,4 @@
-import { EventConfig, Handlers } from 'motia'
+import type { EventConfig } from 'motia'
 import { z } from 'zod'
 import { posterService } from './services/poster.service'
 import { progressService } from './services/progress.service'
@@ -13,7 +13,7 @@ export const config: EventConfig = {
   description: 'Background job that creates map or night sky posters from form data',
 }
 
-export const handler: Handlers = async (input: any, context: any) => {
+export const handler = async (input: any, context: any) => {
   const { jobId, posterId, ...config } = input.data
   
   context.logger.info('Processing poster creation job', { 

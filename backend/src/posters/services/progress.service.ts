@@ -1,4 +1,4 @@
-import { IProgressService } from '../interfaces'
+import type { IProgressService } from '../interfaces'
 import type { PosterProgress } from '../types'
 
 /**

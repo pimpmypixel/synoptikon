@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMotiaStream } from "@motiadev/stream-client-react";
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Loader2, Sparkles, AlertCircle, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Sparkles, AlertCircle, Copy, WifiOff, Send } from "lucide-react";
 import {
   StepIndicator,
   LocationStep,
@@ -18,6 +18,37 @@ import {
   type LocationMode,
   PAPER_SIZES,
 } from "@/components/configurator";
+
+const QUEUED_SUBMISSIONS_KEY = "queuedPosterSubmissions";
+
+interface QueuedSubmission {
+  payload: PosterFormData;
+  queuedAt: string;
+}
+
+function getQueuedSubmissions(): QueuedSubmission[] {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUED_SUBMISSIONS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function addQueuedSubmission(payload: PosterFormData): void {
+  const queued = getQueuedSubmissions();
+  queued.push({ payload, queuedAt: new Date().toISOString() });
+  localStorage.setItem(QUEUED_SUBMISSIONS_KEY, JSON.stringify(queued));
+}
+
+function removeQueuedSubmission(index: number): void {
+  const queued = getQueuedSubmissions();
+  queued.splice(index, 1);
+  localStorage.setItem(QUEUED_SUBMISSIONS_KEY, JSON.stringify(queued));
+}
+
+function clearQueuedSubmissions(): void {
+  localStorage.removeItem(QUEUED_SUBMISSIONS_KEY);
+}
 
 const INITIAL_FORM_DATA: PosterFormData = {
   city: "",
@@ -43,6 +74,8 @@ export default function Configurator() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCloned, setIsCloned] = useState(false);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const { stream } = useMotiaStream();
 
@@ -54,7 +87,6 @@ export default function Configurator() {
         const parsed = JSON.parse(clonedData) as Partial<PosterFormData>;
         setFormData((prev) => ({ ...prev, ...parsed }));
         setIsCloned(true);
-        // Set location mode to coords if lat/lon are present
         if (parsed.lat != null && parsed.lon != null) {
           setLocationMode("coords");
         }
@@ -63,6 +95,7 @@ export default function Configurator() {
         console.error("Failed to parse cloned poster data:", e);
       }
     }
+    setQueuedCount(getQueuedSubmissions().length);
   }, []);
 
   // Subscribe to stream updates when jobId is set
@@ -88,55 +121,106 @@ export default function Configurator() {
     };
   }, [jobId, stream]);
 
+  const buildPayload = useCallback((): PosterFormData => {
+    let widthCm = formData.widthCm;
+    let heightCm = formData.heightCm;
+
+    if (formData.paperSize !== "custom") {
+      const paper = PAPER_SIZES.find((p) => p.id === formData.paperSize);
+      if (paper) {
+        if (formData.landscape) {
+          widthCm = paper.height;
+          heightCm = paper.width;
+        } else {
+          widthCm = paper.width;
+          heightCm = paper.height;
+        }
+      }
+    }
+
+    return {
+      ...formData,
+      widthCm,
+      heightCm,
+      lat: locationMode === "coords" ? formData.lat : undefined,
+      lon: locationMode === "coords" ? formData.lon : undefined,
+      googleMapsUrl: locationMode === "google" ? formData.googleMapsUrl : undefined,
+    };
+  }, [formData, locationMode]);
+
+  const submitPayload = async (payload: PosterFormData): Promise<string> => {
+    const response = await fetch("/posters/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to create poster");
+    }
+
+    const data = await response.json();
+    return data.jobId;
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setError(null);
 
+    const payload = buildPayload();
+
     try {
-      // Calculate actual dimensions based on paper size and orientation
-      let widthCm = formData.widthCm;
-      let heightCm = formData.heightCm;
-
-      if (formData.paperSize !== "custom") {
-        const paper = PAPER_SIZES.find((p) => p.id === formData.paperSize);
-        if (paper) {
-          if (formData.landscape) {
-            widthCm = paper.height;
-            heightCm = paper.width;
-          } else {
-            widthCm = paper.width;
-            heightCm = paper.height;
-          }
-        }
-      }
-
-      const payload: PosterFormData = {
-        ...formData,
-        widthCm,
-        heightCm,
-        lat: locationMode === "coords" ? formData.lat : undefined,
-        lon: locationMode === "coords" ? formData.lon : undefined,
-        googleMapsUrl: locationMode === "google" ? formData.googleMapsUrl : undefined,
-      };
-
-      const response = await fetch("/posters/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create poster");
-      }
-
-      const data = await response.json();
-      setJobId(data.jobId);
+      const id = await submitPayload(payload);
+      setJobId(id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const isNetworkError =
+        err instanceof TypeError && err.message.includes("fetch");
+
+      if (isNetworkError) {
+        // Backend is down — save to localStorage for retry
+        addQueuedSubmission(payload);
+        setQueuedCount(getQueuedSubmissions().length);
+        setError("Backend is offline. Your poster has been saved and will be submitted when the server comes back.");
+      } else {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      }
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleRetryQueued = async () => {
+    setIsRetrying(true);
+    setError(null);
+
+    const queued = getQueuedSubmissions();
+    let successCount = 0;
+    let lastJobId: string | null = null;
+
+    for (let i = queued.length - 1; i >= 0; i--) {
+      try {
+        lastJobId = await submitPayload(queued[i].payload);
+        removeQueuedSubmission(i);
+        successCount++;
+      } catch {
+        // Still offline — stop retrying
+        setError("Backend still offline. Will keep your submissions queued.");
+        break;
+      }
+    }
+
+    setQueuedCount(getQueuedSubmissions().length);
+    setIsRetrying(false);
+
+    if (successCount > 0 && lastJobId) {
+      setJobId(lastJobId);
+    }
+  };
+
+  const handleClearQueued = () => {
+    clearQueuedSubmissions();
+    setQueuedCount(0);
   };
 
   const updateFormData = (key: keyof PosterFormData, value: any) => {
@@ -213,6 +297,41 @@ export default function Configurator() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {queuedCount > 0 && (
+        <Alert className="mb-6 border-amber-500/50 bg-amber-500/5">
+          <WifiOff className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              {queuedCount} poster{queuedCount !== 1 ? "s" : ""} queued offline
+            </span>
+            <div className="flex gap-2 ml-4">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1"
+                onClick={handleRetryQueued}
+                disabled={isRetrying}
+              >
+                {isRetrying ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
+                Retry
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-muted-foreground"
+                onClick={handleClearQueued}
+              >
+                Discard
+              </Button>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 

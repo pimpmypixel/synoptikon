@@ -1,4 +1,4 @@
-import { IMapPosterService, PosterResult } from '../interfaces'
+import type { IMapPosterService, PosterResult } from '../interfaces'
 import { mapDataService } from './map-data.service'
 import { progressService } from './progress.service'
 import { dataService } from './data.service'
@@ -165,26 +165,110 @@ export class MapPosterService implements IMapPosterService {
     dimensions: { width: number; height: number }
   ): Promise<{ svgContent: string; width: number; height: number }> {
     
-    // Create placeholder SVG content
     const { width, height } = dimensions
+    const margin = { top: 40, right: 40, bottom: 60, left: 40 }
+    const mapWidth = width - margin.left - margin.right
+    const mapHeight = height - margin.top - margin.bottom
     
-    const svgContent = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="${theme.bg}"/>
-        <text x="50%" y="30%" text-anchor="middle" dominant-baseline="middle" 
-              fill="${theme.text}" font-family="Arial" font-size="${width * 0.02}">
-          ${(config.city || 'Custom Location').toUpperCase()}
-        </text>
-        <text x="50%" y="40%" text-anchor="middle" dominant-baseline="middle" 
-              fill="${theme.text}" font-family="Arial" font-size="${width * 0.015}" opacity="0.7">
-          ${config.country || ''}
-        </text>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" 
-              fill="${theme.text}" font-family="Arial" font-size="${width * 0.01}" opacity="0.5">
-          Streets: ${streetNetwork.nodes.length}
-        </text>
-      </svg>
-    `
+    // Create SVG with D3-style rendering
+    let svgElements: string[] = []
+    
+    // Background
+    svgElements.push(`<rect width="100%" height="100%" fill="${theme.bg}"/>`)
+    
+    // Title area
+    svgElements.push(`<text x="${width/2}" y="25" text-anchor="middle" dominant-baseline="middle" 
+          fill="${theme.text}" font-family="Arial" font-size="20" font-weight="bold">
+        ${(config.city || 'Custom Location').toUpperCase()}
+      </text>`)
+    
+    if (config.country) {
+      svgElements.push(`<text x="${width/2}" y="45" text-anchor="middle" dominant-baseline="middle" 
+            fill="${theme.text}" font-family="Arial" font-size="14" opacity="0.8">
+          ${config.country}
+        </text>`)
+    }
+    
+    // Map area background
+    svgElements.push(`<rect x="${margin.left}" y="${margin.top}" width="${mapWidth}" height="${mapHeight}" 
+          fill="${theme.bg}" stroke="${theme.text}" stroke-width="1" opacity="0.3"/>`)
+    
+    // Simple street network visualization
+    if (streetNetwork.edges.length > 0) {
+      // Scale coordinates to fit map area
+      const lons = streetNetwork.nodes.flatMap(n => [n.lon]).filter(Boolean)
+      const lats = streetNetwork.nodes.flatMap(n => [n.lat]).filter(Boolean)
+      const minLon = Math.min(...lons)
+      const maxLon = Math.max(...lons)
+      const minLat = Math.min(...lats)
+      const maxLat = Math.max(...lats)
+      
+      const scaleX = (lon: number) => margin.left + ((lon - minLon) / (maxLon - minLon)) * mapWidth
+      const scaleY = (lat: number) => margin.top + ((maxLat - lat) / (maxLat - minLat)) * mapHeight
+      
+      // Draw streets
+      streetNetwork.edges.slice(0, 50).forEach(edge => {
+        const from = streetNetwork.nodes.find(n => n.id === edge.from)
+        const to = streetNetwork.nodes.find(n => n.id === edge.to)
+        
+        if (from && to && from.lon && from.lat && to.lon && to.lat) {
+          const x1 = scaleX(from.lon)
+          const y1 = scaleY(from.lat)
+          const x2 = scaleX(to.lon)
+          const y2 = scaleY(to.lat)
+          
+          let strokeColor = theme.road_default
+          if (edge.highway === 'motorway') strokeColor = theme.road_motorway
+          else if (edge.highway === 'primary') strokeColor = theme.road_primary
+          else if (edge.highway === 'secondary') strokeColor = theme.road_secondary
+          
+          svgElements.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
+                stroke="${strokeColor}" stroke-width="${edge.highway === 'motorway' ? 2 : 1}" opacity="0.7"/>`)
+        }
+      })
+    }
+    
+    // Parks
+    if (parks.length > 0) {
+      parks.slice(0, 10).forEach(park => {
+        if (park.geometry) {
+          const geom = park.geometry as any
+          if (geom.coordinates && geom.coordinates[0]) {
+            const coords = geom.coordinates[0] as number[][]
+            if (coords.length >= 3) {
+              const points = coords.map(coord => `${coord[0]},${coord[1]}`).join(' ')
+              svgElements.push(`<polygon points="${points}" fill="${theme.parks}" opacity="0.3"/>`)
+            }
+          }
+        }
+      })
+    }
+    
+    // Water features
+    if (water.length > 0) {
+      water.slice(0, 5).forEach(water => {
+        if (water.geometry) {
+          const geom = water.geometry as any
+          if (geom.coordinates && geom.coordinates[0]) {
+            const coords = geom.coordinates[0] as number[][]
+            if (coords.length >= 3) {
+              const points = coords.map(coord => `${coord[0]},${coord[1]}`).join(' ')
+              svgElements.push(`<polygon points="${points}" fill="${theme.water}" opacity="0.5"/>`)
+            }
+          }
+        }
+      })
+    }
+    
+    // Stats
+    svgElements.push(`<text x="${margin.left}" y="${height - 20}" fill="${theme.text}" 
+          font-family="Arial" font-size="10" opacity="0.6">
+        Streets: ${streetNetwork.edges.length} | Nodes: ${streetNetwork.nodes.length}
+      </text>`)
+    
+    const svgContent = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      ${svgElements.join('\n  ')}
+    </svg>`
 
     return { svgContent, width, height }
   }
@@ -275,7 +359,7 @@ export class MapPosterService implements IMapPosterService {
         return {
           lat: parseFloat(match[1]),
           lon: parseFloat(match[2]),
-          elevation: match[3] ? parseInt(match[3]) : undefined
+          elevation: match[3] ? parseInt(match[3]!) : undefined
         }
       }
     }

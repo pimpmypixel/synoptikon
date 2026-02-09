@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMotiaStream } from "@motiadev/stream-client-react";
 import { PageHeader, PageHeaderHeading, PageHeaderDescription } from "@/components/page-header";
@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import {
@@ -22,8 +23,17 @@ import {
   Trash2,
   X,
   AlertTriangle,
+  Route,
+  Trees,
+  Droplet,
+  Palette,
+  Save,
+  Check,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import type { PosterFormData } from "@/components/configurator";
+import type { PosterFormData, PosterJob } from "@/components/configurator";
+import { SaveToGoogleDrive } from "@/components/google-drive";
 
 interface PosterInfo {
   filename: string;
@@ -296,6 +306,13 @@ function PosterGridCard({
               DL
             </a>
           </Button>
+          <SaveToGoogleDrive
+            fileUrl={poster.url}
+            fileName={poster.filename}
+            mimeType={poster.format === "pdf" ? "application/pdf" : poster.format === "svg" ? "image/svg+xml" : "image/png"}
+            compact
+            className="flex-1"
+          />
           <Button
             size="sm"
             variant="ghost"
@@ -475,17 +492,181 @@ function LocationSection({
   );
 }
 
+const JOB_STAGES = [
+  { status: "queued", label: "Queued", Icon: Clock },
+  { status: "fetching_data", label: "Location", Icon: MapPin },
+  { status: "downloading_streets", label: "Streets", Icon: Route },
+  { status: "downloading_parks", label: "Parks", Icon: Trees },
+  { status: "downloading_water", label: "Water", Icon: Droplet },
+  { status: "rendering", label: "Rendering", Icon: Palette },
+  { status: "saving", label: "Saving", Icon: Save },
+  { status: "completed", label: "Done", Icon: Check },
+] as const;
+
+function getStageIndex(status: string) {
+  const i = JOB_STAGES.findIndex((s) => s.status === status);
+  return i >= 0 ? i : 0;
+}
+
+function ActiveJobCard({ job, stream }: { job: PosterJob; stream: any }) {
+  const [liveProgress, setLiveProgress] = useState<{
+    status: string;
+    progress: number;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!stream || !job.jobId) return;
+    const sub = stream.subscribeGroup("posterProgress", job.jobId);
+    sub.addChangeListener((data: any) => {
+      if (data && data.length > 0 && data[0].status) {
+        setLiveProgress({
+          status: data[0].status,
+          progress: data[0].progress,
+          message: data[0].message,
+        });
+      }
+    });
+    return () => sub.close();
+  }, [stream, job.jobId]);
+
+  const status = liveProgress?.status || job.status;
+  const progress = liveProgress?.progress ?? job.progress;
+  const message = liveProgress?.message || job.message;
+  const stageIdx = getStageIndex(status);
+  const isCompleted = status === "completed";
+  const isError = status === "error";
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-3 space-y-2 transition-all",
+        isCompleted && "border-green-500/50 bg-green-500/5",
+        isError && "border-destructive/50 bg-destructive/5"
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium truncate">
+          {job.city || "Poster"}
+        </span>
+        {isCompleted && (
+          <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-600">
+            Done
+          </Badge>
+        )}
+        {isError && (
+          <Badge variant="destructive" className="text-[10px]">
+            Error
+          </Badge>
+        )}
+      </div>
+
+      {!isError && (
+        <>
+          <Progress
+            value={progress}
+            className={cn("h-1.5", isCompleted && "[&>div]:bg-green-500")}
+          />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {JOB_STAGES.slice(0, isCompleted ? undefined : -1).map((stage, i) => {
+              const isPast = i < stageIdx;
+              const isCurrent = i === stageIdx && !isCompleted;
+              const SIcon = stage.Icon;
+              return (
+                <div
+                  key={stage.status}
+                  className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full transition-all",
+                    isPast && "bg-primary text-primary-foreground",
+                    isCurrent && "bg-primary text-primary-foreground animate-pulse",
+                    !isPast && !isCurrent && "bg-muted text-muted-foreground",
+                    stage.status === "completed" && isCompleted && "bg-green-500 text-white"
+                  )}
+                  title={stage.label}
+                >
+                  {isCurrent ? (
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                  ) : (
+                    <SIcon className="w-2.5 h-2.5" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">{message}</p>
+        </>
+      )}
+
+      {isError && (
+        <div className="flex items-center gap-1.5 text-[10px] text-destructive">
+          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{job.error || "Failed"}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActiveJobsSidebar({
+  jobs,
+  stream,
+}: {
+  jobs: PosterJob[];
+  stream: any;
+}) {
+  const now = Date.now();
+  const FIVE_MIN = 5 * 60 * 1000;
+  const THIRTY_SEC = 30 * 1000;
+
+  const activeJobs = jobs.filter((j) => {
+    const age = now - new Date(j.updatedAt).getTime();
+    // Recently completed — show briefly then fade out
+    if (j.status === "completed") return age < THIRTY_SEC;
+    // Errors — show briefly
+    if (j.status === "error") return age < THIRTY_SEC;
+    // In-progress jobs — only if updated recently (not stale)
+    return age < FIVE_MIN;
+  });
+
+  if (activeJobs.length === 0) return null;
+
+  return (
+    <div className="w-72 flex-shrink-0 space-y-3">
+      <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        Active Jobs ({activeJobs.length})
+      </h3>
+      {activeJobs.map((job) => (
+        <ActiveJobCard key={job.jobId} job={job} stream={stream} />
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { stream } = useMotiaStream();
   const { addToast, updateToast } = useToast();
   const [posters, setPosters] = useState<PosterInfo[]>([]);
+  const [jobs, setJobs] = useState<PosterJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [previewPoster, setPreviewPoster] = useState<PosterInfo | null>(null);
   const [deletePoster, setDeletePoster] = useState<PosterInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchJobs = useCallback(async () => {
+    try {
+      const res = await fetch("/posters/jobs");
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data.jobs || []);
+      }
+    } catch {
+      // Silently ignore job fetch errors
+    }
+  }, []);
 
   const fetchPosters = async () => {
     try {
@@ -508,9 +689,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchPosters();
-    const interval = setInterval(fetchPosters, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchJobs();
+    const postersInterval = setInterval(fetchPosters, 30000);
+    const jobsInterval = setInterval(fetchJobs, 5000);
+    return () => {
+      clearInterval(postersInterval);
+      clearInterval(jobsInterval);
+    };
+  }, [fetchJobs]);
 
   // Group posters by city + country
   const groupedPosters = posters.reduce(
@@ -685,53 +871,61 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {error && (
-        <Card className="mb-6 border-destructive/50 bg-destructive/5">
-          <CardContent className="pt-6">
-            <p className="text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      )}
+      <div className="flex gap-6">
+        {/* Gallery Content */}
+        <div className="flex-1 min-w-0">
+          {error && (
+            <Card className="mb-6 border-destructive/50 bg-destructive/5">
+              <CardContent className="pt-6">
+                <p className="text-destructive">{error}</p>
+              </CardContent>
+            </Card>
+          )}
 
-      {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {[...Array(8)].map((_, i) => (
-            <PosterGridSkeleton key={i} />
-          ))}
-        </div>
-      ) : groupedPosters.length === 0 ? (
-        <Card className="py-16">
-          <CardContent className="flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-              <ImageIcon className="w-10 h-10 text-muted-foreground" />
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {[...Array(8)].map((_, i) => (
+                <PosterGridSkeleton key={i} />
+              ))}
             </div>
-            <h3 className="text-lg font-medium mb-2">No posters yet</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-              Create your first map poster by selecting a location and
-              customizing the style.
-            </p>
-            <Button asChild>
-              <a href="/create">
-                <PenTool className="w-4 h-4 mr-2" />
-                Create Your First Poster
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        groupedPosters.map((group) => (
-          <LocationSection
-            key={`${group.city}-${group.country}`}
-            city={group.city}
-            country={group.country}
-            posters={group.posters}
-            viewMode={viewMode}
-            onClone={handleClone}
-            onPreview={setPreviewPoster}
-            onDelete={setDeletePoster}
-          />
-        ))
-      )}
+          ) : groupedPosters.length === 0 ? (
+            <Card className="py-16">
+              <CardContent className="flex flex-col items-center text-center">
+                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <ImageIcon className="w-10 h-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">No posters yet</h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                  Create your first map poster by selecting a location and
+                  customizing the style.
+                </p>
+                <Button asChild>
+                  <a href="/create">
+                    <PenTool className="w-4 h-4 mr-2" />
+                    Create Your First Poster
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            groupedPosters.map((group) => (
+              <LocationSection
+                key={`${group.city}-${group.country}`}
+                city={group.city}
+                country={group.country}
+                posters={group.posters}
+                viewMode={viewMode}
+                onClone={handleClone}
+                onPreview={setPreviewPoster}
+                onDelete={setDeletePoster}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Active Jobs Sidebar */}
+        <ActiveJobsSidebar jobs={jobs} stream={stream} />
+      </div>
 
       {/* Preview Modal */}
       {previewPoster && (

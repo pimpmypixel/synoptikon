@@ -13,15 +13,15 @@ declare module 'motia' {
   }
 
   interface Handlers {
-    'ServePosterFile': ApiRouteHandler<Record<string, unknown>, unknown, never>
+    'ProcessPosterCreation': EventHandler<never, never>
     'ListPosters': ApiRouteHandler<Record<string, unknown>, unknown, never>
     'ListPosterJobs': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, { jobs: Array<{ jobId: string; city: string; country: string; theme: string; format: string; status: string; progress: number; message: string; outputFile: string | unknown; error: string | unknown; createdAt: string; updatedAt: string }> }>, never>
     'ProcessPosterDeletion': EventHandler<never, never>
     'DeletePoster': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'poster-deletion-requested'; data: never }>
     'CreatePoster': ApiRouteHandler<{ type: 'map' | 'night-sky'; city?: string; country?: string; lat?: number; lon?: number; googleMapsUrl?: string; theme: string; distance: number; border?: number; format: 'png' | 'svg' | 'pdf'; landscape: boolean; titleFont?: string; subtitleFont?: string; paperSize?: string; rotation?: number; widthCm?: number; heightCm?: number; timestamp?: string; observationPoint: 'current' | 'specified'; celestialObjects?: { stars: boolean; planets: boolean; moon: boolean; constellations: boolean; deepSkyObjects: boolean }; projection?: { type: string; centerLat: number; centerLon: number; fov: number; northUp: boolean }; styling?: { starColors: 'realistic' | 'temperature' | 'monochrome'; starMagnitudes?: { minMagnitude: number; maxMagnitude: number }; constellationLines: boolean; constellationLabels: boolean; gridLines: boolean } }, ApiResponse<200, { success: boolean; jobId: string; message: string }> | ApiResponse<400, { error: string }>, { topic: 'create-poster'; data: never }>
-    'ProcessPosterCreation': EventHandler<never, never>
     'ProcessGreeting': EventHandler<{ timestamp: string; appName: string; greetingPrefix: string; requestId: string }, never>
     'HelloAPI': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, { message: string; status: string; appName: string }>, { topic: 'process-greeting'; data: { timestamp: string; appName: string; greetingPrefix: string; requestId: string } }>
+    'ServePosterFile': ApiRouteHandler<Record<string, unknown>, unknown, never>
   }
     
 }

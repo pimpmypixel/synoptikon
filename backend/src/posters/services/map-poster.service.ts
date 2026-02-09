@@ -1,4 +1,4 @@
-import { IMapPosterService, PosterResult } from '../interfaces'
+import type { IMapPosterService, PosterResult } from '../interfaces'
 import { mapDataService } from './map-data.service'
 import { progressService } from './progress.service'
 import { dataService } from './data.service'
@@ -318,7 +318,7 @@ export class MapPosterService implements IMapPosterService {
         return {
           lat: parseFloat(match[1]),
           lon: parseFloat(match[2]),
-          elevation: match[3] ? parseInt(match[3]) : undefined
+          elevation: match[3] ? parseInt(match[3]!) : undefined
         }
       }
     }

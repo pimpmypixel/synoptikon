@@ -1,4 +1,4 @@
-import { ApiRouteConfig, Handlers } from 'motia'
+import type { ApiRouteConfig, Handlers } from 'motia'
 import { z } from 'zod'
 import { generatePosterId, insertPoster } from './db'
 

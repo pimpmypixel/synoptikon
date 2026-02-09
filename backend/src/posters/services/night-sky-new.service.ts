@@ -1,4 +1,4 @@
-import { INightSkyService, PosterResult } from '../interfaces'
+import type { INightSkyService, PosterResult } from '../interfaces'
 import { progressService } from './progress.service'
 import { dataService } from './data.service'
 import type { NightSkyConfig, CelestialObject, NightSkyTheme, PosterProgress } from '../types'
@@ -198,12 +198,12 @@ export class NightSkyService implements INightSkyService {
    * Calculate planet positions
    */
   private calculatePlanetPositions(jd: number, lat: number, lon: number): CelestialObject[] {
-    const planets = [
-      { id: 'mercury', type: 'planet', name: 'Mercury', magnitude: -0.42, position: { ra: 150, dec: 10 } },
-      { id: 'venus', type: 'planet', name: 'Venus', magnitude: -4.40, position: { ra: 200, dec: 15 } },
-      { id: 'mars', type: 'planet', name: 'Mars', magnitude: -2.94, position: { ra: 120, dec: 20 } },
-      { id: 'jupiter', type: 'planet', name: 'Jupiter', magnitude: -9.40, position: { ra: 80, dec: -5 } },
-      { id: 'saturn', type: 'planet', name: 'Saturn', magnitude: -8.88, position: { ra: 60, dec: -10 } },
+const planets: CelestialObject[] = [
+      { id: 'mercury', type: 'planet' as const, name: 'Mercury', magnitude: 8.23, position: { ra: 120, dec: 10 } },
+      { id: 'venus', type: 'planet' as const, name: 'Venus', magnitude: -3.99, position: { ra: 180, dec: 15 } },
+      { id: 'mars', type: 'planet' as const, name: 'Mars', magnitude: -0.56, position: { ra: 240, dec: -20 } },
+      { id: 'jupiter', type: 'planet' as const, name: 'Jupiter', magnitude: -2.94, position: { ra: 300, dec: 5 } },
+      { id: 'saturn', type: 'planet' as const, name: 'Saturn', magnitude: -8.88, position: { ra: 60, dec: -10 } },
     ]
 
     return planets

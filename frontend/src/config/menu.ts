@@ -1,4 +1,4 @@
-import { Image, PenTool, LucideIcon } from "lucide-react";
+import { Image, PenTool, ClipboardList, LucideIcon } from "lucide-react";
 
 type MenuItemType = {
   title: string;
@@ -19,5 +19,10 @@ export const mainMenu: MenuType = [
     title: "Create Poster",
     url: "/create",
     icon: PenTool,
+  },
+  {
+    title: "Jobs",
+    url: "/jobs",
+    icon: ClipboardList,
   },
 ];

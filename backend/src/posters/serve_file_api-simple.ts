@@ -1,6 +1,4 @@
 import { z } from 'zod'
-import fs from 'fs/promises'
-import path from 'path'
 import type { ApiRouteConfig } from 'motia'
 
 export const config: ApiRouteConfig = {
@@ -16,7 +14,7 @@ export const handler = async (req: any, context: any) => {
   const { filename } = req.pathParams
 
   // Security: prevent directory traversal
-  if (filename.includes('..') || filename.includes('/')) {
+  if (filename?.includes('..') || filename?.includes('/')) {
     return {
       status: 400,
       body: { error: 'Invalid filename' },
@@ -24,26 +22,25 @@ export const handler = async (req: any, context: any) => {
   }
 
   // Posters are in root directory
-  const postersDir = path.join(process.cwd(), '..', 'posters')
-  const filePath = path.join(postersDir, filename)
+  const postersDir = '../posters'
+  const filePath = `${postersDir}/${filename}`
 
   try {
-    const file = await fs.readFile(filePath)
-    const ext = path.extname(filename).toLowerCase()
+    const file = await Bun.file(filePath).arrayBuffer()
+    const ext = filename.split('.').pop()?.toLowerCase() || ''
     
     let contentType = 'application/octet-stream'
-    if (ext === '.png') contentType = 'image/png'
-    else if (ext === '.svg') contentType = 'image/svg+xml'
-    else if (ext === '.pdf') contentType = 'application/pdf'
+    if (ext === 'png') contentType = 'image/png'
+    else if (ext === 'svg') contentType = 'image/svg+xml'
+    else if (ext === 'pdf') contentType = 'application/pdf'
     
-    return {
+    return new Response(file, {
       status: 200,
-      body: file,
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${filename}"`,
       },
-    }
+    })
   } catch (error) {
     context.logger.error('Failed to serve poster file', { filename, error })
     return {

@@ -1,4 +1,4 @@
-import { EventConfig } from 'motia'
+import type { EventConfig } from 'motia'
 import fs from 'fs/promises'
 import path from 'path'
 import { getPosterByFilename, deletePosterByFilename } from './db'

@@ -1,4 +1,4 @@
-import { 
+import type { 
   PosterConfig, 
   MapPosterConfig, 
   NightSkyConfig, 
@@ -44,7 +44,6 @@ export interface PosterResult {
 export interface IMapPosterService extends IPosterService {
   fetchStreetNetwork(lat: number, lon: number, distance: number): Promise<StreetNetwork>
   fetchFeatures(lat: number, lon: number, distance: number, type: 'water' | 'parks'): Promise<GeoFeature[]>
-  renderMapPoster(config: MapPosterConfig): Promise<PosterResult>
 }
 
 /**
@@ -53,7 +52,6 @@ export interface IMapPosterService extends IPosterService {
 export interface INightSkyService extends IPosterService {
   calculateCelestialPositions(timestamp: string, lat: number, lon: number): Promise<CelestialObject[]>
   fetchStarCatalog(magnitude: number): Promise<CelestialObject[]>
-  renderNightSkyPoster(config: NightSkyConfig): Promise<PosterResult>
 }
 
 /**

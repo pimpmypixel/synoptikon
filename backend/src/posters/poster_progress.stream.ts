@@ -1,4 +1,4 @@
-import { StreamConfig } from 'motia'
+import type { StreamConfig } from 'motia'
 import { z } from 'zod'
 
 export const config: StreamConfig = {

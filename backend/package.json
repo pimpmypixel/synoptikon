@@ -25,6 +25,11 @@
     "@motiadev/plugin-streams": "0.17.14-beta.196",
     "@motiadev/plugin-ws": "0.17.14-beta.196",
     "better-sqlite3": "^12.6.2",
+    "zod": "^4.1.13",
+    // Additional dependencies for TypeScript poster creation
+    "d3": "^7.9.0",
+    "d3-geo": "^3.1.0",
+    "@turf/turf": "^6.5.0",
     "motia": "0.17.14-beta.196",
     "zod": "^4.1.13"
   },

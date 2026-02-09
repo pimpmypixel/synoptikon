@@ -573,53 +573,89 @@ def render_poster(
     )
 
     # ox.plot_graph sets aspect='equal' for projected CRS via _config_ax.
-    # Capture the corrected limits before gradient fades can break them.
+    # Capture the corrected limits before adjustments.
     saved_xlim = ax.get_xlim()
     saved_ylim = ax.get_ylim()
 
-    # Create gradient fades at top and bottom of map area
-    # Landscape uses smaller fades (10%) since the map area is shorter
-    fade_pct = 0.10 if is_landscape else 0.15
+    # Adjust viewport to fill the poster's map area without empty margins.
+    # A square data extent in a non-square canvas leaves blank space on sides.
+    # Crop the view to match the canvas aspect ratio so the map fills it.
+    map_area_aspect = width_in / (height_in * map_fraction)
+    x_range = saved_xlim[1] - saved_xlim[0]
+    y_range = saved_ylim[1] - saved_ylim[0]
+    data_aspect = x_range / y_range if y_range > 0 else 1.0
 
-    def create_gradient_fade(ax, color, location="bottom", zorder=10):
-        vals = np.linspace(0, 1, 256).reshape(-1, 1)
-        gradient = np.hstack((vals, vals))
+    if map_area_aspect > data_aspect * 1.05:
+        # Canvas wider than data (landscape): crop height to fill width
+        new_y_range = x_range / map_area_aspect
+        y_center = (saved_ylim[0] + saved_ylim[1]) / 2
+        saved_ylim = (y_center - new_y_range / 2, y_center + new_y_range / 2)
+    elif map_area_aspect < data_aspect * 0.95:
+        # Canvas taller than data (portrait): crop width to fill height
+        new_x_range = y_range * map_area_aspect
+        x_center = (saved_xlim[0] + saved_xlim[1]) / 2
+        saved_xlim = (x_center - new_x_range / 2, x_center + new_x_range / 2)
 
+    ax.set_xlim(saved_xlim)
+    ax.set_ylim(saved_ylim)
+
+    # Create gradient fades at all edges of the map area
+    fade_v = 0.10 if is_landscape else 0.15   # vertical (top/bottom)
+    fade_h = 0.06                               # horizontal (left/right)
+
+    def create_gradient_fade(ax, color, direction="bottom", fade_pct=0.15, zorder=10):
         rgb = mcolors.to_rgb(color)
-        my_colors = np.zeros((256, 4))
-        my_colors[:, 0] = rgb[0]
-        my_colors[:, 1] = rgb[1]
-        my_colors[:, 2] = rgb[2]
-
-        if location == "bottom":
-            my_colors[:, 3] = np.linspace(1, 0, 256)
-            extent_y_start = 0
-            extent_y_end = fade_pct
-        else:
-            my_colors[:, 3] = np.linspace(0, 1, 256)
-            extent_y_start = 1.0 - fade_pct
-            extent_y_end = 1.0
-
-        custom_cmap = mcolors.ListedColormap(my_colors)
-
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
-        y_range = ylim[1] - ylim[0]
 
-        y_bottom = ylim[0] + y_range * extent_y_start
-        y_top = ylim[0] + y_range * extent_y_end
+        if direction in ("bottom", "top"):
+            # Vertical gradient: varies along y-axis
+            vals = np.linspace(0, 1, 256).reshape(-1, 1)
+            gradient = np.hstack((vals, vals))
 
-        ax.imshow(
-            gradient,
-            extent=[xlim[0], xlim[1], y_bottom, y_top],
-            aspect="auto",
-            cmap=custom_cmap,
-            zorder=zorder,
-            origin="lower",
-        )
+            my_colors = np.zeros((256, 4))
+            my_colors[:, 0] = rgb[0]
+            my_colors[:, 1] = rgb[1]
+            my_colors[:, 2] = rgb[2]
 
-    create_gradient_fade(ax, theme["gradient_color"], location="bottom", zorder=10)
-    create_gradient_fade(ax, theme["gradient_color"], location="top", zorder=10)
+            yr = ylim[1] - ylim[0]
+            if direction == "bottom":
+                my_colors[:, 3] = np.linspace(1, 0, 256)
+                ext = [xlim[0], xlim[1], ylim[0], ylim[0] + yr * fade_pct]
+            else:
+                my_colors[:, 3] = np.linspace(0, 1, 256)
+                ext = [xlim[0], xlim[1], ylim[0] + yr * (1 - fade_pct), ylim[1]]
+
+            custom_cmap = mcolors.ListedColormap(my_colors)
+            ax.imshow(gradient, extent=ext, aspect="auto",
+                     cmap=custom_cmap, zorder=zorder, origin="lower")
+        else:
+            # Horizontal gradient: varies along x-axis
+            vals = np.linspace(0, 1, 256).reshape(1, -1)
+            gradient = np.vstack((vals, vals))
+
+            my_colors = np.zeros((256, 4))
+            my_colors[:, 0] = rgb[0]
+            my_colors[:, 1] = rgb[1]
+            my_colors[:, 2] = rgb[2]
+
+            xr = xlim[1] - xlim[0]
+            if direction == "left":
+                my_colors[:, 3] = np.linspace(1, 0, 256)
+                ext = [xlim[0], xlim[0] + xr * fade_pct, ylim[0], ylim[1]]
+            else:
+                my_colors[:, 3] = np.linspace(0, 1, 256)
+                ext = [xlim[0] + xr * (1 - fade_pct), xlim[1], ylim[0], ylim[1]]
+
+            custom_cmap = mcolors.ListedColormap(my_colors)
+            ax.imshow(gradient, extent=ext, aspect="auto",
+                     cmap=custom_cmap, zorder=zorder, origin="lower")
+
+    gc = theme["gradient_color"]
+    create_gradient_fade(ax, gc, "bottom", fade_v, zorder=10)
+    create_gradient_fade(ax, gc, "top", fade_v, zorder=10)
+    create_gradient_fade(ax, gc, "left", fade_h, zorder=10)
+    create_gradient_fade(ax, gc, "right", fade_h, zorder=10)
 
     # Restore equal aspect ratio — imshow(aspect="auto") overrides it,
     # which skews the map from the intended 90° top-down orthographic view

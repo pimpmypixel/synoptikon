@@ -47,4 +47,4 @@ function PageHeaderDescription({
   )
 }
 
-export { PageHeader, PageHeaderDescription, PageHeaderHeading }
+export { PageHeader, PageHeaderDescription, PageHeaderHeading };

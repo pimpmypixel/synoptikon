@@ -13,6 +13,8 @@ import {
   DimensionsStep,
   ProgressView,
   PosterPreview,
+  PosterTypeSelector,
+  NightSkyStep,
   type PosterFormData,
   type ProgressUpdate,
   type LocationMode,
@@ -51,6 +53,7 @@ function clearQueuedSubmissions(): void {
 }
 
 const INITIAL_FORM_DATA: PosterFormData = {
+  type: "map",
   city: "",
   country: "",
   theme: "feature_based",
@@ -226,6 +229,10 @@ export default function Configurator() {
   const updateFormData = (key: keyof PosterFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
+  
+  const updateNightSkyFormData = (updates: Partial<Omit<PosterFormData, "type"> & { type: "night-sky" }>) => {
+    setFormData((prev) => ({ ...prev, ...updates } as PosterFormData));
+  };
 
   const canProceed = () => {
     if (currentStep === 0) {
@@ -267,9 +274,10 @@ export default function Configurator() {
   }
 
   const stepDescriptions = [
+    "Choose your poster type",
     "Choose where you want to capture",
     "Pick a visual style for your poster",
-    "Set the output format and size",
+    "Set output format and size",
   ];
 
   return (
@@ -337,17 +345,36 @@ export default function Configurator() {
 
       <StepIndicator currentStep={currentStep} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form Panel */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>{["Location", "Style", "Output"][currentStep]}</CardTitle>
-              <CardDescription>{stepDescriptions[currentStep]}</CardDescription>
-            </CardHeader>
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         {/* Poster Type Selection */}
+         <div className="lg:col-span-1">
+           <PosterTypeSelector
+             value={formData.type}
+             onChange={(type) => updateFormData("type", type)}
+           />
+         </div>
+         
+         {/* Form Panel */}
+         <div className="lg:col-span-2">
+           <Card>
+             <CardHeader>
+               <CardTitle>{["Poster Type", "Location", "Style", "Output"][currentStep]}</CardTitle>
+               <CardDescription>{stepDescriptions[currentStep]}</CardDescription>
+             </CardHeader>
 
             <CardContent className="min-h-[300px]">
               {currentStep === 0 && (
+                <PosterTypeSelector
+                  value={formData.type}
+                  onChange={(type) => {
+                    updateFormData("type", type);
+                    // Reset to first step when changing poster type
+                    setCurrentStep(0);
+                  }}
+                />
+              )}
+              
+              {currentStep === 1 && (
                 <LocationStep
                   formData={formData}
                   updateFormData={updateFormData}
@@ -355,12 +382,19 @@ export default function Configurator() {
                   setLocationMode={setLocationMode}
                 />
               )}
-
-              {currentStep === 1 && (
+              
+              {currentStep === 2 && formData.type === "map" && (
                 <ThemeStep formData={formData} updateFormData={updateFormData} />
               )}
-
-              {currentStep === 2 && (
+              
+              {currentStep === 2 && formData.type === "night-sky" && (
+                <NightSkyStep
+                  value={formData as any}
+                  onChange={updateNightSkyFormData}
+                />
+              )}
+              
+              {currentStep === 3 && (
                 <DimensionsStep formData={formData} updateFormData={updateFormData} />
               )}
             </CardContent>

@@ -1,4 +1,6 @@
 export interface PosterFormData {
+  // Core fields
+  type: "map" | "night-sky";
   city: string;
   country: string;
   lat?: number;
@@ -15,6 +17,39 @@ export interface PosterFormData {
   widthCm?: number;
   heightCm?: number;
   rotation?: number; // 0-360 degrees
+  
+  // Map-specific fields
+  waterFeatures?: boolean;
+  parkFeatures?: boolean;
+  roadHierarchy?: boolean;
+  
+  // Night sky specific fields
+  timestamp?: string; // ISO datetime string
+  observationPoint?: "current" | "specified";
+  celestialObjects?: {
+    stars?: boolean;
+    planets?: boolean;
+    moon?: boolean;
+    constellations?: boolean;
+    deepSkyObjects?: boolean;
+  };
+  projection?: {
+    type: "stereographic";
+    centerLat?: number;
+    centerLon?: number;
+    fov?: number;
+    northUp?: boolean;
+  };
+  styling?: {
+    starColors?: "realistic" | "temperature" | "monochrome";
+    starMagnitudes?: {
+      minMagnitude?: number;
+      maxMagnitude?: number;
+    };
+    constellationLines?: boolean;
+    constellationLabels?: boolean;
+    gridLines?: boolean;
+  };
 }
 
 // Standard paper sizes in cm (portrait orientation)
@@ -65,18 +100,27 @@ export interface PosterJob {
 export type LocationMode = "city" | "coords" | "google";
 
 export const THEMES = [
-  { value: "feature_based", label: "Feature Based", description: "Modern style with color-coded features" },
-  { value: "noir", label: "Noir", description: "Dark and dramatic" },
-  { value: "warm_beige", label: "Warm Beige", description: "Soft and elegant" },
-  { value: "blueprint", label: "Blueprint", description: "Technical blueprint style" },
-  { value: "ocean", label: "Ocean", description: "Cool ocean tones" },
-  { value: "midnight_blue", label: "Midnight Blue", description: "Deep blue night theme" },
-  { value: "pastel_dream", label: "Pastel Dream", description: "Soft pastel colors" },
-  { value: "japanese_ink", label: "Japanese Ink", description: "Minimalist ink wash" },
-  { value: "terracotta", label: "Terracotta", description: "Warm earth tones" },
-  { value: "sunset", label: "Sunset", description: "Warm sunset gradients" },
-  { value: "contrast_zones", label: "Contrast Zones", description: "High contrast zones" },
-  { value: "copper_patina", label: "Copper Patina", description: "Aged copper aesthetics" },
+  // Map themes
+  { value: "feature_based", label: "Feature Based", description: "Modern style with color-coded features", type: "map" },
+  { value: "noir", label: "Noir", description: "Dark and dramatic", type: "map" },
+  { value: "warm_beige", label: "Warm Beige", description: "Soft and elegant", type: "map" },
+  { value: "blueprint", label: "Blueprint", description: "Technical blueprint style", type: "map" },
+  { value: "ocean", label: "Ocean", description: "Cool ocean tones", type: "map" },
+  { value: "midnight_blue", label: "Midnight Blue", description: "Deep blue night theme", type: "map" },
+  { value: "pastel_dream", label: "Pastel Dream", description: "Soft pastel colors", type: "map" },
+  { value: "japanese_ink", label: "Japanese Ink", description: "Minimalist ink wash", type: "map" },
+  { value: "terracotta", label: "Terracotta", description: "Warm earth tones", type: "map" },
+  { value: "sunset", label: "Sunset", description: "Warm sunset gradients", type: "map" },
+  { value: "contrast_zones", label: "Contrast Zones", description: "High contrast zones", type: "map" },
+  { value: "copper_patina", label: "Copper Patina", description: "Aged copper aesthetics", type: "map" },
+  
+  // Night sky themes
+  { value: "starry_night", label: "Starry Night", description: "Deep blue with bright stars", type: "night-sky" },
+  { value: "cosmic_purple", label: "Cosmic Purple", description: "Mysterious purple nebula", type: "night-sky" },
+  { value: "aurora_green", label: "Aurora Green", description: "Northern lights style", type: "night-sky" },
+  { value: "lunar_gray", label: "Lunar Gray", description: "Moon surface monochrome", type: "night-sky" },
+  { value: "solar_orange", label: "Solar Orange", description: "Warm solar corona", type: "night-sky" },
+  { value: "nebula_pink", label: "Nebula Pink", description: "Pink cosmic dust", type: "night-sky" },
 ] as const;
 
 export const DISTANCE_OPTIONS = [

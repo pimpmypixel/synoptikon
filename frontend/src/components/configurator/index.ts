@@ -5,6 +5,8 @@ export { DimensionsStep } from "./DimensionsStep";
 export { ProgressView } from "./ProgressView";
 export { FontSelector, FontSelectorCompact } from "./FontSelector";
 export { PosterPreview } from "./PosterPreview";
+export { PosterTypeSelector } from "./PosterTypeSelector";
+export { NightSkyStep } from "./NightSkyStep";
 export { RotationDial } from "./RotationDial";
 export { THEME_COLORS } from "./theme-colors";
 export { PAPER_SIZES } from "./types";

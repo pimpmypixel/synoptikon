@@ -37,6 +37,8 @@ import { SaveToGoogleDrive } from "@/components/google-drive";
 
 interface PosterInfo {
   filename: string;
+  url: string;
+  thumbnailUrl: string;
   city: string;
   country: string;
   theme: string;
@@ -48,14 +50,7 @@ interface PosterInfo {
   paperSize?: string;
   rotation?: number;
   border?: number;
-  lat?: number;
-  lon?: number;
-  widthCm?: number;
-  heightCm?: number;
-  createdAt: string;
-  fileSize: number;
-  url: string;
-  thumbnailUrl?: string;
+  type: "map" | "night-sky";
 }
 
 type ViewMode = "grid" | "table";
@@ -446,7 +441,7 @@ function LocationSection({
       {/* Grid View */}
       {viewMode === "grid" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {posters.map((poster) => (
+          {posters.filter(poster => poster.type === activeTab).map((poster) => (
             <PosterGridCard
               key={poster.filename}
               poster={poster}
@@ -644,17 +639,13 @@ function ActiveJobsSidebar({
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const { stream } = useMotiaStream();
-  const { addToast, updateToast } = useToast();
   const [posters, setPosters] = useState<PosterInfo[]>([]);
-  const [jobs, setJobs] = useState<PosterJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [previewPoster, setPreviewPoster] = useState<PosterInfo | null>(null);
-  const [deletePoster, setDeletePoster] = useState<PosterInfo | null>(null);
+  const [deleteModal, setDeleteModal] = useState<PosterInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"map" | "night-sky">("map");
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -811,45 +802,16 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader>
-        <PageHeaderHeading>Gallery</PageHeaderHeading>
-        <PageHeaderDescription>
-          Your collection of generated map posters
-        </PageHeaderDescription>
-      </PageHeader>
-
-      <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-muted-foreground">
-          {loading ? (
-            "Loading..."
-          ) : (
-            <>
-              {posters.length} poster{posters.length !== 1 ? "s" : ""} in{" "}
-              {groupedPosters.length} location
-              {groupedPosters.length !== 1 ? "s" : ""}
-            </>
-          )}
-        </p>
-        <div className="flex gap-2">
-          {/* View Toggle */}
-          <div className="flex border rounded-lg p-1">
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 px-2"
-              onClick={() => setViewMode("grid")}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "table" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 px-2"
-              onClick={() => setViewMode("table")}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
+        <PageHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <div>
+                <h3 className="text-2xl font-bold tracking-tight">Poster Gallery</h3>
+                <p className="text-muted-foreground">
+                  Your collection of generated map and night sky posters
+                </p>
+              </div>
+            </div>
 
           <Button
             variant="outline"

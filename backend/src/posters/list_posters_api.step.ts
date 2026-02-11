@@ -17,6 +17,7 @@ export const handler = async (req: any, context: any) => {
     const posters = records.map((r: PosterRecord) => ({
       id: r.id,
       filename: r.filename,
+      type: r.type,
       city: r.city,
       country: r.country,
       theme: r.theme,

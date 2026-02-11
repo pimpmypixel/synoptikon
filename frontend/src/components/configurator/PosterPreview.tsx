@@ -7,7 +7,6 @@ import { MapPin } from "lucide-react";
 
 interface PosterPreviewProps {
   formData: PosterFormData;
-  locationMode?: "city" | "coords" | "google";
 }
 
 // Load Google Font dynamically
@@ -111,6 +110,63 @@ function SimulatedMap({ theme, rotation = 0 }: { theme: string; rotation?: numbe
   );
 }
 
+// Sky theme colors for preview
+const SKY_PREVIEW_COLORS: Record<string, { bg: string; bgEnd: string; stars: string; accent: string; moon: string }> = {
+  starry_night:  { bg: "#0B1026", bgEnd: "#1A2040", stars: "#FFFFFF", accent: "#4682B4", moon: "#F0F0F0" },
+  cosmic_purple: { bg: "#1A0A2E", bgEnd: "#2D1450", stars: "#E8D5F5", accent: "#7B2FBE", moon: "#E8D5F5" },
+  aurora_green:  { bg: "#0A1F0A", bgEnd: "#153015", stars: "#FFFFFF", accent: "#4ADE80", moon: "#E0FFE0" },
+  lunar_gray:    { bg: "#1A1A1A", bgEnd: "#2A2A2A", stars: "#D4D4D4", accent: "#666666", moon: "#D4D4D4" },
+  solar_orange:  { bg: "#1A0F05", bgEnd: "#2A1A08", stars: "#FFD4A0", accent: "#FF8C00", moon: "#FFD4A0" },
+  nebula_pink:   { bg: "#1A0515", bgEnd: "#2A0A25", stars: "#FFD0E8", accent: "#FF69B4", moon: "#FFD0E8" },
+  classic_ivory: { bg: "#FAF6F0", bgEnd: "#F0EBE0", stars: "#1A2744", accent: "#B8960A", moon: "#1A2744" },
+  arctic_blue:   { bg: "#EDF3F8", bgEnd: "#DDE8F0", stars: "#1C2D3F", accent: "#4A7AAA", moon: "#1C2D3F" },
+  dawn_rose:     { bg: "#F8EEF0", bgEnd: "#F0E0E4", stars: "#3A1A24", accent: "#B07A7A", moon: "#3A1A24" },
+};
+
+// Simulated sky preview with stars, constellation lines, and crescent moon
+function SimulatedSky({ theme }: { theme: string }) {
+  const c = SKY_PREVIEW_COLORS[theme] || SKY_PREVIEW_COLORS.starry_night;
+  // Deterministic "random" star positions
+  const stars = [
+    { cx: 30, cy: 25, r: 2.2 }, { cx: 70, cy: 18, r: 1.8 }, { cx: 50, cy: 40, r: 2.5 },
+    { cx: 20, cy: 55, r: 1.2 }, { cx: 80, cy: 50, r: 1.5 }, { cx: 45, cy: 70, r: 2.0 },
+    { cx: 65, cy: 65, r: 1.0 }, { cx: 35, cy: 85, r: 1.8 }, { cx: 85, cy: 80, r: 1.3 },
+    { cx: 15, cy: 35, r: 1.6 }, { cx: 55, cy: 55, r: 0.8 }, { cx: 90, cy: 30, r: 1.1 },
+    { cx: 10, cy: 75, r: 1.4 }, { cx: 75, cy: 40, r: 0.9 }, { cx: 40, cy: 15, r: 1.7 },
+    { cx: 60, cy: 90, r: 1.0 }, { cx: 25, cy: 95, r: 0.7 }, { cx: 88, cy: 65, r: 1.2 },
+  ];
+
+  return (
+    <svg className="w-full h-full" viewBox="0 0 100 130">
+      <defs>
+        <radialGradient id="sky-preview-bg" cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stopColor={c.bg} />
+          <stop offset="100%" stopColor={c.bgEnd} />
+        </radialGradient>
+        <filter id="prev-glow">
+          <feGaussianBlur stdDeviation="1" />
+          <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <rect width="100" height="130" fill="url(#sky-preview-bg)" />
+      {/* Horizon circle */}
+      <circle cx="50" cy="55" r="45" fill="none" stroke={c.accent} strokeWidth="0.5" opacity={0.3} />
+      {/* Constellation lines */}
+      <polyline points="30,25 50,40 70,18" fill="none" stroke={c.accent} strokeWidth="0.4" opacity={0.4} />
+      <polyline points="50,40 45,70 65,65" fill="none" stroke={c.accent} strokeWidth="0.4" opacity={0.4} />
+      <polyline points="80,50 85,80 60,90" fill="none" stroke={c.accent} strokeWidth="0.4" opacity={0.4} />
+      {/* Stars */}
+      {stars.map((s, i) => (
+        <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={c.stars}
+          opacity={s.r > 1.5 ? 0.95 : 0.6} filter={s.r > 2 ? "url(#prev-glow)" : undefined} />
+      ))}
+      {/* Moon crescent */}
+      <circle cx="78" cy="28" r="5" fill={c.bgEnd} stroke={c.moon} strokeWidth="0.3" />
+      <path d="M 78,23 A 5,5 0 0,1 78,33 A 3,5 0 0,0 78,23" fill={c.moon} opacity={0.9} />
+    </svg>
+  );
+}
+
 // OpenStreetMap embed for real location preview
 function MapEmbed({ lat, lon }: { lat: number; lon: number; zoom?: number }) {
   return (
@@ -131,7 +187,7 @@ function MapEmbed({ lat, lon }: { lat: number; lon: number; zoom?: number }) {
   );
 }
 
-export function PosterPreview({ formData, locationMode }: PosterPreviewProps) {
+export function PosterPreview({ formData }: PosterPreviewProps) {
   useGoogleFont(formData.titleFont);
   useGoogleFont(formData.subtitleFont);
 
@@ -176,7 +232,7 @@ export function PosterPreview({ formData, locationMode }: PosterPreviewProps) {
     return null;
   }, [formData.googleMapsUrl, formData.lat, formData.lon]);
 
-  const showRealMap = coordinates && (locationMode === "google" || locationMode === "coords");
+  const showRealMap = !!coordinates;
 
   return (
     <div className="flex flex-col h-full">
@@ -206,9 +262,11 @@ export function PosterPreview({ formData, locationMode }: PosterPreviewProps) {
             }}
           />
 
-          {/* Map area */}
+          {/* Map/Sky area */}
           <div className="relative w-full h-full overflow-hidden">
-            {showRealMap && coordinates ? (
+            {formData.type === "your-sky" ? (
+              <SimulatedSky theme={formData.theme} />
+            ) : showRealMap && coordinates ? (
               <div
                 className="w-full h-full"
                 style={{ transform: `rotate(${rotation}deg)` }}

@@ -1,0 +1,21 @@
+{
+  "name": "sydney-summer",
+  "city": "Sydney",
+  "country": "Australia",
+  "lat": -33.8688,
+  "lon": 151.2093,
+  "timestamp": "2025-01-15T12:00:00Z",
+  "theme": "cosmic_purple",
+  "description": "Sydney summer night (local), Southern Cross",
+  "starCount": 2698,
+  "planetsVisible": [
+    "Mars",
+    "Jupiter",
+    "Uranus",
+    "Neptune"
+  ],
+  "moonPhase": 199.09395562635274,
+  "moonIllumination": 0.9717244165173835,
+  "renderTimeMs": 27,
+  "fileSizeBytes": 230401
+}

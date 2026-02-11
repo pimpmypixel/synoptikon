@@ -1,7 +1,7 @@
-import type { ApiRouteConfig, Handlers } from 'motia'
+import type { ApiRouteConfig } from 'motia'
 import { z } from 'zod'
 import { posterService } from './services/poster.service'
-import type { PosterConfig, PosterProgress } from './types'
+import type { PosterConfig } from './types'
 
 export const config: ApiRouteConfig = {
   type: 'api',
@@ -11,7 +11,7 @@ export const config: ApiRouteConfig = {
   emits: ['create-poster'],
   flows: ['poster-creation-flow'],
   bodySchema: z.object({
-    type: z.enum(['map', 'night-sky']).default('map'),
+    type: z.enum(['map', 'your-sky']).default('map'),
     city: z.string().optional(),
     country: z.string().optional(),
     lat: z.number().optional(),
@@ -28,7 +28,7 @@ export const config: ApiRouteConfig = {
     rotation: z.number().optional(),
     widthCm: z.number().optional(),
     heightCm: z.number().optional(),
-    // Night sky specific options
+    // Your Sky specific options
     timestamp: z.string().datetime().optional(),
     observationPoint: z.enum(['current', 'specified']).default('current'),
     celestialObjects: z.object({
@@ -36,12 +36,14 @@ export const config: ApiRouteConfig = {
       planets: z.boolean().default(true),
       moon: z.boolean().default(true),
       constellations: z.boolean().default(true),
+      zodiac: z.boolean().default(false),
+      grid: z.boolean().default(false),
       deepSkyObjects: z.boolean().default(false),
     }).optional(),
     projection: z.object({
-      type: z.literal('stereographic'),
-      centerLat: z.number(),
-      centerLon: z.number(),
+      type: z.enum(['stereographic', 'polar']),
+      centerLat: z.number().optional(),
+      centerLon: z.number().optional(),
       fov: z.number().default(180),
       northUp: z.boolean().default(true),
     }).optional(),
@@ -86,8 +88,14 @@ export const handler = async (req: any, context: any) => {
     // Initialize progress tracking
     await context.state.set('posterJobs', jobId, {
       jobId,
-      posterId: jobId, // Use jobId as posterId for now
+      posterId: jobId,
       type: body.type,
+      city: body.city || '',
+      country: body.country || '',
+      theme: body.theme || '',
+      format: body.format || 'png',
+      distance: body.distance || 0,
+      landscape: body.landscape || false,
       status: 'queued',
       progress: 0,
       message: 'Poster creation job queued',

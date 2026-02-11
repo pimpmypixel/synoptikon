@@ -1,6 +1,5 @@
-import type { IMapPosterService } from '../interfaces'
 import { dataService } from './data.service'
-import type { MapPosterConfig, MapTheme, StreetNetwork, GeoFeature } from '../types'
+import type { StreetNetwork, GeoFeature } from '../types'
 
 interface OverpassResponse {
   elements: OverpassElement[]

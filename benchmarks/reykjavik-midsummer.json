@@ -1,0 +1,19 @@
+{
+  "name": "reykjavik-midsummer",
+  "city": "Reykjavik",
+  "country": "Iceland",
+  "lat": 64.1466,
+  "lon": -21.9426,
+  "timestamp": "2025-06-21T01:00:00Z",
+  "theme": "lunar_gray",
+  "description": "Reykjavik midsummer (near midnight sun)",
+  "starCount": 2327,
+  "planetsVisible": [
+    "Mercury",
+    "Mars"
+  ],
+  "moonPhase": 299.532892691083,
+  "moonIllumination": 0.2548017592139923,
+  "renderTimeMs": 17,
+  "fileSizeBytes": 195958
+}

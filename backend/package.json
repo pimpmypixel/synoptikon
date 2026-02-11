@@ -11,7 +11,6 @@
     "clean": "rm -rf dist node_modules python_modules .motia .mermaid"
   },
   "dependencies": {
-    "@motiadev/plugin-ws": "0.17.14-beta.196",
     "@motiadev/core": "0.17.14-beta.196",
     "@motiadev/plugin-bullmq": "0.17.14-beta.196",
     "@motiadev/plugin-cron": "0.17.14-beta.196",
@@ -20,11 +19,16 @@
     "@motiadev/plugin-observability": "0.17.14-beta.196",
     "@motiadev/plugin-states": "0.17.14-beta.196",
     "@motiadev/plugin-streams": "0.17.14-beta.196",
+    "@motiadev/plugin-ws": "0.17.14-beta.196",
+    "@resvg/resvg-js": "^2.6.2",
+    "@turf/turf": "^6.5.0",
+    "@types/pdfkit": "^0.17.4",
+    "astronomy-engine": "^2.1.19",
     "better-sqlite3": "^12.6.2",
-    "motia": "0.17.14-beta.196",
     "d3": "^7.9.0",
     "d3-geo": "^3.1.0",
-    "@turf/turf": "^6.5.0",
+    "motia": "0.17.14-beta.196",
+    "pdfkit": "^0.17.2",
     "zod": "^4.1.13"
   },
   "devDependencies": {

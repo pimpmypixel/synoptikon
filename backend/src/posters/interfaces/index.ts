@@ -1,14 +1,9 @@
-import type { 
-  PosterConfig, 
-  MapPosterConfig, 
-  NightSkyConfig, 
+import type {
+  PosterConfig,
   PosterProgress,
   StreetNetwork,
   GeoFeature,
   CelestialObject,
-  MapTheme,
-  NightSkyTheme,
-  ExportOptions
 } from '../types'
 
 /**
@@ -47,9 +42,9 @@ export interface IMapPosterService extends IPosterService {
 }
 
 /**
- * Night sky poster service interface
+ * Your Sky poster service interface
  */
-export interface INightSkyService extends IPosterService {
+export interface IYourSkyService extends IPosterService {
   calculateCelestialPositions(timestamp: string, lat: number, lon: number): Promise<CelestialObject[]>
   fetchStarCatalog(magnitude: number): Promise<CelestialObject[]>
 }
@@ -73,30 +68,3 @@ export interface IProgressService {
   failProgress(jobId: string, error: string): Promise<void>
 }
 
-/**
- * Theme management service interface
- */
-export interface IThemeService {
-  loadTheme(type: 'map' | 'night-sky', name: string): Promise<MapTheme | NightSkyTheme>
-  listThemes(type: 'map' | 'night-sky'): Promise<string[]>
-  validateTheme(theme: any): boolean
-}
-
-/**
- * Export service interface
- */
-export interface IExportService {
-  exportToPNG(element: HTMLElement, options: ExportOptions): Promise<string>
-  exportToSVG(element: HTMLElement, options: ExportOptions): Promise<string>
-  exportToPDF(element: HTMLElement, options: ExportOptions): Promise<string>
-  generateThumbnail(element: HTMLElement, options: ExportOptions): Promise<string>
-}
-
-/**
- * Geocoding service interface
- */
-export interface IGeocodingService {
-  geocode(address: string): Promise<{ lat: number; lon: number; address?: string }>
-  reverseGeocode(lat: number, lon: number): Promise<{ address: string; city?: string; country?: string }>
-  parseGoogleMapsURL(url: string): { lat: number; lon: number; elevation?: number }
-}

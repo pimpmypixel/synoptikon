@@ -6,8 +6,9 @@ export const BasePosterConfigSchema = z.object({
   posterId: z.string(),
   city: z.string().optional(),
   country: z.string().optional(),
-  lat: z.number(),
-  lon: z.number(),
+  lat: z.number().optional(),
+  lon: z.number().optional(),
+  googleMapsUrl: z.string().optional(),
   theme: z.string(),
   distance: z.number().optional(),
   border: z.number().optional(),
@@ -24,15 +25,14 @@ export const BasePosterConfigSchema = z.object({
 // Map poster specific configuration
 export const MapPosterConfigSchema = BasePosterConfigSchema.extend({
   type: z.literal('map'),
-  googleMapsUrl: z.string().optional(),
   waterFeatures: z.boolean().default(true),
   parkFeatures: z.boolean().default(true),
   roadHierarchy: z.boolean().default(true),
 })
 
-// Night sky poster specific configuration
-export const NightSkyConfigSchema = BasePosterConfigSchema.extend({
-  type: z.literal('night-sky'),
+// Your Sky poster specific configuration
+export const YourSkyConfigSchema = BasePosterConfigSchema.extend({
+  type: z.literal('your-sky'),
   timestamp: z.string().datetime(), // ISO datetime string
   observationPoint: z.enum(['current', 'specified']), // whether to use current location or specified lat/lon
   celestialObjects: z.object({
@@ -40,24 +40,26 @@ export const NightSkyConfigSchema = BasePosterConfigSchema.extend({
     planets: z.boolean().default(true),
     moon: z.boolean().default(true),
     constellations: z.boolean().default(true),
+    zodiac: z.boolean().default(false),
+    grid: z.boolean().default(false),
     deepSkyObjects: z.boolean().default(false),
   }).default({
     stars: true,
     planets: true,
     moon: true,
     constellations: true,
+    zodiac: false,
+    grid: false,
     deepSkyObjects: false,
   }),
   projection: z.object({
-    type: z.literal('stereographic'),
-    centerLat: z.number(),
-    centerLon: z.number(),
+    type: z.enum(['stereographic', 'polar']),
+    centerLat: z.number().optional(),
+    centerLon: z.number().optional(),
     fov: z.number().default(180), // field of view in degrees
     northUp: z.boolean().default(true),
   }).default({
     type: 'stereographic',
-    centerLat: 0,
-    centerLon: 0,
     fov: 180,
     northUp: true,
   }),
@@ -88,11 +90,11 @@ export const NightSkyConfigSchema = BasePosterConfigSchema.extend({
 // Union type for all poster configurations
 export const PosterConfigSchema = z.discriminatedUnion('type', [
   MapPosterConfigSchema,
-  NightSkyConfigSchema,
+  YourSkyConfigSchema,
 ])
 
 export type MapPosterConfig = z.infer<typeof MapPosterConfigSchema>
-export type NightSkyConfig = z.infer<typeof NightSkyConfigSchema>
+export type YourSkyConfig = z.infer<typeof YourSkyConfigSchema>
 export type PosterConfig = z.infer<typeof PosterConfigSchema>
 
 // Progress tracking
@@ -129,10 +131,11 @@ export interface MapTheme {
   edge_width_factor?: number
 }
 
-export interface NightSkyTheme {
+export interface YourSkyTheme {
   name: string
   description?: string
   bg: string
+  bgGradientEnd?: string
   text: string
   stars: {
     main: string
@@ -150,8 +153,14 @@ export interface NightSkyTheme {
     neptune: string
   }
   moon: string
+  moonGlow?: string
   constellations: string
+  constellationLabels?: string
+  ecliptic?: string
+  horizon?: string
+  zodiac?: string
   grid: string
+  useSpectralColors?: boolean
   fonts: {
     bold: string
     regular: string
@@ -159,7 +168,7 @@ export interface NightSkyTheme {
   }
 }
 
-export type Theme = MapTheme | NightSkyTheme
+export type Theme = MapTheme | YourSkyTheme
 
 // Export formats
 export interface ExportOptions {
@@ -201,6 +210,10 @@ export interface CelestialObject {
     ra: number // right ascension in degrees
     dec: number // declination in degrees
   }
+  horizontal?: {
+    alt: number // altitude in degrees
+    az: number  // azimuth in degrees
+  }
   projected?: {
     x: number
     y: number
@@ -210,7 +223,17 @@ export interface CelestialObject {
     spectral_type?: string
     color?: string
     size?: number
+    bv_color?: number        // B-V color index for spectral star coloring
+    phase?: number           // moon phase in degrees (0=new, 180=full)
+    illumination?: number    // moon illumination fraction (0-1)
+    symbol?: string          // planet/zodiac Unicode symbol
   }
+}
+
+export interface ConstellationLineData {
+  id: string
+  name: string
+  segments: Array<Array<{ alt: number; az: number; x?: number; y?: number }>>
 }
 
 // Result types

@@ -1,4 +1,3 @@
-import { z } from 'zod'
 import fs from 'fs/promises'
 import path from 'path'
 import type { ApiRouteConfig } from 'motia'

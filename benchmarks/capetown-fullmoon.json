@@ -1,0 +1,19 @@
+{
+  "name": "capetown-fullmoon",
+  "city": "Cape Town",
+  "country": "South Africa",
+  "lat": -33.9249,
+  "lon": 18.4241,
+  "timestamp": "2025-02-12T22:00:00Z",
+  "theme": "nebula_pink",
+  "description": "Cape Town full moon night",
+  "starCount": 2690,
+  "planetsVisible": [
+    "Mars",
+    "Jupiter"
+  ],
+  "moonPhase": 183.91872762205702,
+  "moonIllumination": 0.9983471260801674,
+  "renderTimeMs": 18,
+  "fileSizeBytes": 228348
+}

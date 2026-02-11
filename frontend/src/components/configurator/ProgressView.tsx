@@ -5,7 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   Clock, MapPin, Route, Trees, Droplet, Palette, Save,
-  Check, AlertCircle, Loader2, Download, Plus, Sparkles, LayoutGrid
+  Check, AlertCircle, Loader2, Download, Plus, Sparkles, LayoutGrid,
+  Star, BookOpen
 } from "lucide-react";
 import { SaveToGoogleDrive } from "@/components/google-drive";
 import type { ProgressUpdate } from "./types";
@@ -15,9 +16,12 @@ interface ProgressViewProps {
   progress: ProgressUpdate | null;
   wsConnected: boolean;
   onReset: () => void;
+  posterType?: "map" | "your-sky";
 }
 
-const STAGES = [
+type Stage = { status: string; label: string; icon: typeof Clock };
+
+const MAP_STAGES: Stage[] = [
   { status: "queued", label: "Queued", icon: Clock },
   { status: "fetching_data", label: "Finding Location", icon: MapPin },
   { status: "downloading_streets", label: "Streets", icon: Route },
@@ -28,14 +32,24 @@ const STAGES = [
   { status: "completed", label: "Complete", icon: Check },
 ];
 
-function getStageIndex(status: string): number {
-  const index = STAGES.findIndex(s => s.status === status);
+const SKY_STAGES: Stage[] = [
+  { status: "queued", label: "Queued", icon: Clock },
+  { status: "fetching_data", label: "Loading Catalog", icon: BookOpen },
+  { status: "calculating_celestial", label: "Computing Sky", icon: Star },
+  { status: "rendering", label: "Rendering", icon: Palette },
+  { status: "saving", label: "Saving", icon: Save },
+  { status: "completed", label: "Complete", icon: Check },
+];
+
+function getStageIndex(status: string, stages: Stage[]): number {
+  const index = stages.findIndex(s => s.status === status);
   return index >= 0 ? index : 0;
 }
 
-export function ProgressView({ jobId, progress, wsConnected, onReset }: ProgressViewProps) {
+export function ProgressView({ jobId, progress, wsConnected, onReset, posterType }: ProgressViewProps) {
   const [showConfetti, setShowConfetti] = useState(false);
-  const currentStageIndex = progress ? getStageIndex(progress.status) : 0;
+  const stages = posterType === "your-sky" ? SKY_STAGES : MAP_STAGES;
+  const currentStageIndex = progress ? getStageIndex(progress.status, stages) : 0;
   const isCompleted = progress?.status === "completed";
   const isError = progress?.status === "error";
 
@@ -122,7 +136,7 @@ export function ProgressView({ jobId, progress, wsConnected, onReset }: Progress
               <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-muted" />
 
               <div className="space-y-4">
-                {STAGES.map((stage, index) => {
+                {stages.map((stage, index) => {
                   const Icon = stage.icon;
                   const isPast = index < currentStageIndex;
                   const isCurrent = index === currentStageIndex && !isCompleted;

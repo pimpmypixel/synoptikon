@@ -1,37 +1,39 @@
 import type { IMapPosterService, PosterResult } from '../interfaces'
 import { mapDataService } from './map-data.service'
 import { progressService } from './progress.service'
-import { dataService } from './data.service'
 import type { StreetNetwork, GeoFeature, MapTheme, MapPosterConfig, PosterProgress } from '../types'
+import fs from 'fs/promises'
+import path from 'path'
+import { Resvg } from '@resvg/resvg-js'
+import { svgToPdfBuffer } from './pdf.service'
 
 /**
  * Map poster rendering service using D3.js
  */
 export class MapPosterService implements IMapPosterService {
-  private readonly outputDir = 'posters'
 
   /**
    * Validate map poster configuration
    */
   async validate(config: MapPosterConfig): Promise<boolean> {
-    // Basic validation
-    if (!config.lat || !config.lon) {
-      throw new Error('Coordinates are required')
+    if (!config.lat && !config.lon && !config.googleMapsUrl) {
+      throw new Error('Coordinates or Google Maps URL are required')
     }
-    
-    if (config.lat < -90 || config.lat > 90) {
-      throw new Error('Latitude must be between -90 and 90')
-    }
-    
-    if (config.lon < -180 || config.lon > 180) {
-      throw new Error('Longitude must be between -180 and 180')
-    }
-    
-    if (!config.theme) {
-      throw new Error('Theme is required')
-    }
-
     return true
+  }
+
+  /**
+   * Resolve lat/lon from config, parsing googleMapsUrl if needed
+   */
+  private resolveCoordinates(config: MapPosterConfig): { lat: number; lon: number } {
+    if (config.googleMapsUrl) {
+      const coords = this.parseGoogleMapsURL(config.googleMapsUrl)
+      return coords
+    }
+    if (config.lat != null && config.lon != null) {
+      return { lat: config.lat, lon: config.lon }
+    }
+    throw new Error('Coordinates are required')
   }
 
   /**
@@ -39,11 +41,8 @@ export class MapPosterService implements IMapPosterService {
    */
   async createPoster(config: MapPosterConfig): Promise<PosterResult> {
     const startTime = Date.now()
-    
+
     try {
-      // Validate configuration
-      await this.validate(config)
-      
       await progressService.updateProgress(
         config.jobId,
         'fetching_data',
@@ -51,22 +50,7 @@ export class MapPosterService implements IMapPosterService {
         5
       )
 
-      // Load theme
-      const theme = await this.loadTheme(config.theme)
-      
-      // Get coordinates from Google Maps URL if provided
-      let lat = config.lat
-      let lon = config.lon
-      
-      if (config.googleMapsUrl) {
-        const coords = this.parseGoogleMapsURL(config.googleMapsUrl)
-        lat = coords.lat
-        lon = coords.lon
-        
-        if (coords.elevation && config.distance === 29000) {
-          config.distance = coords.elevation / 2
-        }
-      }
+      const { lat, lon } = this.resolveCoordinates(config)
 
       await progressService.updateProgress(
         config.jobId,
@@ -75,12 +59,7 @@ export class MapPosterService implements IMapPosterService {
         15
       )
 
-      // Fetch data
-      const streetNetwork = await mapDataService.fetchStreetNetwork(
-        lat,
-        lon,
-        config.distance || 29000
-      )
+      const streetNetwork = await this.fetchStreetNetwork(lat, lon, config.distance || 29000)
 
       await progressService.updateProgress(
         config.jobId,
@@ -89,9 +68,7 @@ export class MapPosterService implements IMapPosterService {
         35
       )
 
-      const parks = config.waterFeatures !== false 
-        ? await mapDataService.fetchFeatures(lat, lon, config.distance || 29000, 'parks')
-        : []
+      const parks = await this.fetchFeatures(lat, lon, config.distance || 29000, 'parks')
 
       await progressService.updateProgress(
         config.jobId,
@@ -100,9 +77,7 @@ export class MapPosterService implements IMapPosterService {
         55
       )
 
-      const water = config.waterFeatures !== false
-        ? await mapDataService.fetchFeatures(lat, lon, config.distance || 29000, 'water')
-        : []
+      const water = await this.fetchFeatures(lat, lon, config.distance || 29000, 'water')
 
       await progressService.updateProgress(
         config.jobId,
@@ -111,16 +86,14 @@ export class MapPosterService implements IMapPosterService {
         70
       )
 
+      // Load theme
+      const theme = await this.loadTheme(config.theme)
+      
       // Calculate dimensions
       const dimensions = this.calculateDimensions(config)
       
       // Render poster
-      const result = await this.renderMapPoster(
-        config,
-        streetNetwork,
-        parks,
-        water
-      )
+      const renderResult = await this.renderMapContent(config, streetNetwork, parks, water, theme, dimensions)
 
       await progressService.updateProgress(
         config.jobId,
@@ -130,13 +103,12 @@ export class MapPosterService implements IMapPosterService {
       )
 
       // Save files
-      const saveResult = await this.savePoster(result, config)
+      const saveResult = await this.savePoster(renderResult, config)
       
       await progressService.completeProgress(config.jobId, saveResult.filePath, {
         width: dimensions.width,
         height: dimensions.height,
-        renderTime: Date.now() - startTime,
-        ...saveResult.metadata
+        renderTime: Date.now() - startTime
       })
 
       return {
@@ -162,74 +134,151 @@ export class MapPosterService implements IMapPosterService {
   }
 
   /**
-   * Render map poster using D3.js
+   * Get progress for job
    */
-  private async renderMapPoster(config: MapPosterConfig, streetNetwork: StreetNetwork, parks: GeoFeature[], water: GeoFeature[]): Promise<{ svgContent: string; width: number; height: number }> {
-    // This is where we'll implement D3.js rendering
-    // For now, return a placeholder SVG
-    const dimensions = this.calculateDimensions(config)
-    
-    let svgContent = `
-      <svg width="${dimensions.width}" height="${dimensions.height}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="${config.theme || '#FFFFFF'}"/>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" 
-              fill="${config.theme || '#000000'}" font-family="Arial" font-size="24">
-          Map Poster for ${config.city || 'Custom Location'}
-        </text>
-      </svg>
-    `
-
-    // Apply rotation if specified
-    if (config.rotation && config.rotation !== 0) {
-      svgContent = this.applyRotation(svgContent, config.rotation)
-    }
-
-    return { svgContent, width: dimensions.width, height: dimensions.height }
+  async getProgress(jobId: string): Promise<PosterProgress | null> {
+    return progressService.getProgress(jobId)
   }
 
   /**
-   * Save poster to file and generate thumbnail
+   * Fetch street network (delegate to map data service)
    */
-  private async savePoster(
-    renderResult: { svgContent: string; width: number; height: number },
-    config: MapPosterConfig
-  ): Promise<{ filePath: string; thumbnailPath: string; fileSize: number; metadata: any }> {
-    // Ensure output directory exists
-    await this.ensureDirectory(this.outputDir)
+  async fetchStreetNetwork(lat: number, lon: number, distance: number): Promise<StreetNetwork> {
+    return mapDataService.fetchStreetNetwork(lat, lon, distance)
+  }
+
+  /**
+   * Fetch features (delegate to map data service)
+   */
+  async fetchFeatures(lat: number, lon: number, distance: number, type: 'water' | 'parks'): Promise<GeoFeature[]> {
+    return mapDataService.fetchFeatures(lat, lon, distance, type)
+  }
+
+  /**
+   * Render map poster (interface requirement)
+   */
+  async renderMapPoster(config: MapPosterConfig): Promise<PosterResult> {
+    return this.createPoster(config)
+  }
+
+  /**
+   * Render map poster content
+   */
+  private async renderMapContent(
+    config: MapPosterConfig,
+    streetNetwork: StreetNetwork,
+    parks: GeoFeature[],
+    water: GeoFeature[],
+    theme: MapTheme,
+    dimensions: { width: number; height: number }
+  ): Promise<{ svgContent: string; width: number; height: number }> {
     
-    const posterId = config.posterId
-    const format = config.format || 'png'
+    const { width, height } = dimensions
+    const margin = { top: 40, right: 40, bottom: 60, left: 40 }
+    const mapWidth = width - margin.left - margin.right
+    const mapHeight = height - margin.top - margin.bottom
     
-    // Main file path
-    const filePath = `${this.outputDir}/${posterId}.${format}`
+    // Create SVG with D3-style rendering
+    let svgElements: string[] = []
     
-    // Thumbnail path
-    const thumbnailPath = `${this.outputDir}/${posterId}_thumb.png`
+    // Background
+    svgElements.push(`<rect width="100%" height="100%" fill="${theme.bg}"/>`)
     
-    // Save main poster
-    let fileSize = 0
-    if (format === 'svg') {
-      const svgBuffer = Buffer.from(renderResult.svgContent, 'utf8')
-      await Bun.write(filePath, svgBuffer)
-      fileSize = svgBuffer.length
-    } else {
-      // For PNG/PDF, we would use a headless browser or canvas
-      // For now, save as PNG with basic conversion
-      fileSize = await this.convertToPNG(renderResult.svgContent, filePath)
+    // Title area
+    svgElements.push(`<text x="${width/2}" y="25" text-anchor="middle" dominant-baseline="middle" 
+          fill="${theme.text}" font-family="Arial" font-size="20" font-weight="bold">
+        ${(config.city || 'Custom Location').toUpperCase()}
+      </text>`)
+    
+    if (config.country) {
+      svgElements.push(`<text x="${width/2}" y="45" text-anchor="middle" dominant-baseline="middle" 
+            fill="${theme.text}" font-family="Arial" font-size="14" opacity="0.8">
+          ${config.country}
+        </text>`)
     }
     
-    // Generate thumbnail
-    await this.generateThumbnail(renderResult.svgContent, thumbnailPath, config.landscape || false)
+    // Map area background
+    svgElements.push(`<rect x="${margin.left}" y="${margin.top}" width="${mapWidth}" height="${mapHeight}" 
+          fill="${theme.bg}" stroke="${theme.text}" stroke-width="1" opacity="0.3"/>`)
     
-    return {
-      filePath,
-      thumbnailPath,
-      fileSize,
-      metadata: {
-        svgSize: renderResult.svgContent.length,
-        aspectRatio: renderResult.width / renderResult.height
-      }
+    // Simple street network visualization
+    if (streetNetwork.edges.length > 0) {
+      // Scale coordinates to fit map area
+      const lons = streetNetwork.nodes.flatMap(n => [n.lon]).filter(Boolean)
+      const lats = streetNetwork.nodes.flatMap(n => [n.lat]).filter(Boolean)
+      const minLon = Math.min(...lons)
+      const maxLon = Math.max(...lons)
+      const minLat = Math.min(...lats)
+      const maxLat = Math.max(...lats)
+      
+      const scaleX = (lon: number) => margin.left + ((lon - minLon) / (maxLon - minLon)) * mapWidth
+      const scaleY = (lat: number) => margin.top + ((maxLat - lat) / (maxLat - minLat)) * mapHeight
+      
+      // Draw streets
+      streetNetwork.edges.slice(0, 50).forEach(edge => {
+        const from = streetNetwork.nodes.find(n => n.id === edge.from)
+        const to = streetNetwork.nodes.find(n => n.id === edge.to)
+        
+        if (from && to && from.lon && from.lat && to.lon && to.lat) {
+          const x1 = scaleX(from.lon)
+          const y1 = scaleY(from.lat)
+          const x2 = scaleX(to.lon)
+          const y2 = scaleY(to.lat)
+          
+          let strokeColor = theme.road_default
+          if (edge.highway === 'motorway') strokeColor = theme.road_motorway
+          else if (edge.highway === 'primary') strokeColor = theme.road_primary
+          else if (edge.highway === 'secondary') strokeColor = theme.road_secondary
+          
+          svgElements.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
+                stroke="${strokeColor}" stroke-width="${edge.highway === 'motorway' ? 2 : 1}" opacity="0.7"/>`)
+        }
+      })
     }
+    
+    // Parks
+    if (parks.length > 0) {
+      parks.slice(0, 10).forEach(park => {
+        if (park.geometry) {
+          const geom = park.geometry as any
+          if (geom.coordinates && geom.coordinates[0]) {
+            const coords = geom.coordinates[0] as number[][]
+            if (coords.length >= 3) {
+              const points = coords.map(coord => `${coord[0]},${coord[1]}`).join(' ')
+              svgElements.push(`<polygon points="${points}" fill="${theme.parks}" opacity="0.3"/>`)
+            }
+          }
+        }
+      })
+    }
+    
+    // Water features
+    if (water.length > 0) {
+      water.slice(0, 5).forEach(water => {
+        if (water.geometry) {
+          const geom = water.geometry as any
+          if (geom.coordinates && geom.coordinates[0]) {
+            const coords = geom.coordinates[0] as number[][]
+            if (coords.length >= 3) {
+              const points = coords.map(coord => `${coord[0]},${coord[1]}`).join(' ')
+              svgElements.push(`<polygon points="${points}" fill="${theme.water}" opacity="0.5"/>`)
+            }
+          }
+        }
+      })
+    }
+    
+    // Stats
+    svgElements.push(`<text x="${margin.left}" y="${height - 20}" fill="${theme.text}" 
+          font-family="Arial" font-size="10" opacity="0.6">
+        Streets: ${streetNetwork.edges.length} | Nodes: ${streetNetwork.nodes.length}
+      </text>`)
+    
+    const svgContent = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      ${svgElements.join('\n  ')}
+    </svg>`
+
+    return { svgContent, width, height }
   }
 
   /**
@@ -238,8 +287,8 @@ export class MapPosterService implements IMapPosterService {
   private calculateDimensions(config: MapPosterConfig): { width: number; height: number } {
     if (config.widthCm && config.heightCm) {
       return {
-        width: config.widthCm / 2.54 * 300, // Convert cm to pixels at 300 DPI
-        height: config.heightCm / 2.54 * 300
+        width: Math.round(config.widthCm / 2.54 * 300), // Convert cm to pixels at 300 DPI
+        height: Math.round(config.heightCm / 2.54 * 300)
       }
     }
     
@@ -254,11 +303,10 @@ export class MapPosterService implements IMapPosterService {
    * Load theme from file system
    */
   private async loadTheme(themeName: string): Promise<MapTheme> {
-    const themePath = `../maptoposter/themes/${themeName}.json`
-    
+    const themePath = path.join(process.cwd(), '..', 'maptoposter', 'themes', `${themeName}.json`)
+
     try {
-      const themeFile = Bun.file(themePath)
-      const themeContent = await themeFile.text()
+      const themeContent = await fs.readFile(themePath, 'utf8')
       const theme = JSON.parse(themeContent)
       
       // Add default fonts if not specified
@@ -327,74 +375,58 @@ export class MapPosterService implements IMapPosterService {
   }
 
   /**
-   * Apply rotation to SVG content
+   * Save poster to file and generate thumbnail
    */
-  private applyRotation(svgContent: string, angle: number): string {
-    return `<!-- Rotated ${angle} degrees -->${svgContent}<!-- End rotation -->`
-  }
+  private async savePoster(
+    renderResult: { svgContent: string; width: number; height: number },
+    config: MapPosterConfig
+  ): Promise<{ filePath: string; thumbnailPath: string; fileSize: number }> {
+    const outputDir = path.join(process.cwd(), '..', 'posters')
+    await fs.mkdir(outputDir, { recursive: true })
 
-  /**
-   * Convert SVG to PNG (placeholder implementation)
-   */
-  private async convertToPNG(svgContent: string, filePath: string): Promise<number> {
-    // This would use a proper SVG to PNG conversion in production
-    // For now, save as SVG with .png extension
-    const buffer = Buffer.from(svgContent, 'utf8')
-    await Bun.write(filePath, buffer)
-    return buffer.length
-  }
+    const posterId = config.posterId
+    const format = config.format || 'png'
 
-  /**
-   * Generate thumbnail
-   */
-  private async generateThumbnail(svgContent: string, thumbnailPath: string, isLandscape: boolean): Promise<void> {
-    const scale = isLandscape ? 0.25 : 0.25
-    // Simple thumbnail generation - would use proper image processing in production
-    const thumbnailSVG = svgContent.replace(
-      /width="(\d+)"/,
-      `width="${Math.floor(4800 * scale)}"`
-    ).replace(
-      /height="(\d+)"/,
-      `height="${Math.floor(3600 * scale)}"`
-    )
-    
-    await Bun.write(thumbnailPath, thumbnailSVG)
-  }
+    const filePath = path.join(outputDir, `${posterId}.${format}`)
+    const thumbnailPath = path.join(outputDir, `${posterId}_thumb.png`)
 
-  /**
-   * Ensure directory exists
-   */
-  private async ensureDirectory(dir: string): Promise<void> {
-    try {
-      const fs = await import('fs/promises')
-      await fs.mkdir(dir, { recursive: true })
-    } catch (error) {
-      // Directory might already exist
+    // Save main poster
+    const resvgOpts = {
+      font: { loadSystemFonts: true },
+    }
+
+    let fileBuffer: Buffer
+    if (format === 'png') {
+      const resvg = new Resvg(renderResult.svgContent, {
+        ...resvgOpts,
+        fitTo: { mode: 'width' as const, value: renderResult.width },
+      })
+      const pngData = resvg.render()
+      fileBuffer = Buffer.from(pngData.asPng())
+    } else if (format === 'pdf') {
+      fileBuffer = await svgToPdfBuffer(renderResult.svgContent, renderResult.width, renderResult.height)
+    } else {
+      fileBuffer = Buffer.from(renderResult.svgContent, 'utf8')
+    }
+
+    await fs.writeFile(filePath, fileBuffer)
+    const fileSize = fileBuffer.length
+
+    // Generate thumbnail as PNG
+    const thumbWidth = Math.floor(renderResult.width * 0.25)
+    const thumbResvg = new Resvg(renderResult.svgContent, {
+      ...resvgOpts,
+      fitTo: { mode: 'width' as const, value: thumbWidth },
+    })
+    const thumbPng = thumbResvg.render()
+    await fs.writeFile(thumbnailPath, thumbPng.asPng())
+
+    return {
+      filePath: `posters/${posterId}.${format}`,
+      thumbnailPath: `posters/${posterId}_thumb.png`,
+      fileSize
     }
   }
-
-  /**
-   * Get progress for job
-   */
-  async getProgress(jobId: string): Promise<PosterProgress | null> {
-    return progressService.getProgress(jobId)
-  }
-
-  /**
-   * Fetch street network (delegate to map data service)
-   */
-  async fetchStreetNetwork(lat: number, lon: number, distance: number): Promise<StreetNetwork> {
-    return mapDataService.fetchStreetNetwork(lat, lon, distance)
-  }
-
-  /**
-   * Fetch features (delegate to map data service)
-   */
-  async fetchFeatures(lat: number, lon: number, distance: number, type: 'water' | 'parks'): Promise<GeoFeature[]> {
-    return mapDataService.fetchFeatures(lat, lon, distance, type)
-  }
-
-
 }
 
 // Singleton instance

@@ -1,0 +1,95 @@
+{
+  "generated": "2026-02-10T21:34:56.045Z",
+  "entries": [
+    {
+      "name": "paris-winter",
+      "city": "Paris",
+      "country": "France",
+      "timestamp": "2025-01-15T23:00:00Z",
+      "theme": "starry_night",
+      "starCount": 2531,
+      "planetsVisible": [
+        "Mars",
+        "Jupiter",
+        "Uranus"
+      ],
+      "moonPhase": 204.5,
+      "moonIllumination": 0.954,
+      "renderTimeMs": 116,
+      "fileSizeBytes": 213054,
+      "svgFile": "paris-winter.svg"
+    },
+    {
+      "name": "sydney-summer",
+      "city": "Sydney",
+      "country": "Australia",
+      "timestamp": "2025-01-15T12:00:00Z",
+      "theme": "cosmic_purple",
+      "starCount": 2698,
+      "planetsVisible": [
+        "Mars",
+        "Jupiter",
+        "Uranus",
+        "Neptune"
+      ],
+      "moonPhase": 199.1,
+      "moonIllumination": 0.972,
+      "renderTimeMs": 27,
+      "fileSizeBytes": 230401,
+      "svgFile": "sydney-summer.svg"
+    },
+    {
+      "name": "tokyo-equinox",
+      "city": "Tokyo",
+      "country": "Japan",
+      "timestamp": "2025-03-20T21:00:00Z",
+      "theme": "aurora_green",
+      "starCount": 2400,
+      "planetsVisible": [
+        "Mercury",
+        "Venus",
+        "Saturn",
+        "Neptune"
+      ],
+      "moonPhase": 251.9,
+      "moonIllumination": 0.656,
+      "renderTimeMs": 22,
+      "fileSizeBytes": 204242,
+      "svgFile": "tokyo-equinox.svg"
+    },
+    {
+      "name": "reykjavik-midsummer",
+      "city": "Reykjavik",
+      "country": "Iceland",
+      "timestamp": "2025-06-21T01:00:00Z",
+      "theme": "lunar_gray",
+      "starCount": 2327,
+      "planetsVisible": [
+        "Mercury",
+        "Mars"
+      ],
+      "moonPhase": 299.5,
+      "moonIllumination": 0.255,
+      "renderTimeMs": 17,
+      "fileSizeBytes": 195958,
+      "svgFile": "reykjavik-midsummer.svg"
+    },
+    {
+      "name": "capetown-fullmoon",
+      "city": "Cape Town",
+      "country": "South Africa",
+      "timestamp": "2025-02-12T22:00:00Z",
+      "theme": "nebula_pink",
+      "starCount": 2690,
+      "planetsVisible": [
+        "Mars",
+        "Jupiter"
+      ],
+      "moonPhase": 183.9,
+      "moonIllumination": 0.998,
+      "renderTimeMs": 18,
+      "fileSizeBytes": 228348,
+      "svgFile": "capetown-fullmoon.svg"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "tokyo-equinox",
+  "city": "Tokyo",
+  "country": "Japan",
+  "lat": 35.6762,
+  "lon": 139.6503,
+  "timestamp": "2025-03-20T21:00:00Z",
+  "theme": "aurora_green",
+  "description": "Tokyo spring equinox evening",
+  "starCount": 2400,
+  "planetsVisible": [
+    "Mercury",
+    "Venus",
+    "Saturn",
+    "Neptune"
+  ],
+  "moonPhase": 251.87215430878507,
+  "moonIllumination": 0.6561640753377971,
+  "renderTimeMs": 22,
+  "fileSizeBytes": 204242
+}

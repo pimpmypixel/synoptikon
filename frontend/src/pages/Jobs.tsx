@@ -19,6 +19,7 @@ import {
   Download,
   FileIcon,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import type { PosterJob } from "@/components/configurator";
 
@@ -79,7 +80,7 @@ function JobRow({ job }: { job: PosterJob }) {
               {job.city || "Unknown"}{job.country ? `, ${job.country}` : ""}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {job.theme.replace(/_/g, " ")} &middot; {job.format.toUpperCase()} &middot; {job.distance / 1000}km
+              {(job.theme || "unknown").replace(/_/g, " ")} &middot; {(job.format || "png").toUpperCase()} &middot; {(job.distance || 0) / 1000}km
               {job.landscape ? " &middot; Landscape" : ""}
             </p>
           </div>
@@ -159,6 +160,7 @@ function JobRow({ job }: { job: PosterJob }) {
 export default function Jobs() {
   const [jobs, setJobs] = useState<PosterJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cleaning, setCleaning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = async () => {
@@ -176,6 +178,23 @@ export default function Jobs() {
     }
   };
 
+  const cleanJobs = async (mode: "stale" | "errors" | "all") => {
+    try {
+      setCleaning(true);
+      const res = await fetch("/posters/jobs/clean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error("Failed to clean jobs");
+      await fetchJobs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clean jobs");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
     const interval = setInterval(fetchJobs, 10000);
@@ -187,6 +206,8 @@ export default function Jobs() {
   const activeJobs = jobs.filter(
     (j) => j.status !== "completed" && j.status !== "error"
   );
+
+  const hasStaleOrErrors = activeJobs.length > 0 || errorJobs.length > 0;
 
   return (
     <>
@@ -217,15 +238,41 @@ export default function Jobs() {
             </Badge>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchJobs}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          {hasStaleOrErrors && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => cleanJobs("stale")}
+              disabled={cleaning}
+              className="text-orange-600 border-orange-300 hover:bg-orange-50"
+            >
+              <Trash2 className={cn("w-4 h-4 mr-2", cleaning && "animate-spin")} />
+              Clean Stale
+            </Button>
+          )}
+          {jobs.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => cleanJobs("all")}
+              disabled={cleaning}
+              className="text-destructive border-destructive/30 hover:bg-destructive/5"
+            >
+              <Trash2 className={cn("w-4 h-4 mr-2", cleaning && "animate-spin")} />
+              Clear All
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchJobs}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error && (

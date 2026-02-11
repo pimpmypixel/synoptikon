@@ -1,32 +1,27 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Star, Moon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { MapPin, Star, Check } from "lucide-react";
 import type { PosterFormData } from "./types";
 
 interface PosterType {
-  id: "map" | "night-sky";
+  id: "map" | "your-sky";
   label: string;
   description: string;
   icon: React.ComponentType<any>;
-  features: string[];
 }
 
 const POSTER_TYPES: PosterType[] = [
   {
     id: "map",
     label: "Map Poster",
-    description: "Create beautiful maps from any location",
+    description: "Street maps from any location",
     icon: MapPin,
-    features: ["OpenStreetMap data", "Custom themes", "Geographic accuracy"]
   },
   {
-    id: "night-sky",
-    label: "Night Sky Poster",
-    description: "Capture the beauty of the night sky",
+    id: "your-sky",
+    label: "Your Sky",
+    description: "Star chart of the sky above",
     icon: Star,
-    features: ["Real-time astronomy", "Celestial objects", "Starry constellations"]
-  }
+  },
 ];
 
 interface PosterTypeSelectorProps {
@@ -35,42 +30,48 @@ interface PosterTypeSelectorProps {
 }
 
 export function PosterTypeSelector({ value, onChange }: PosterTypeSelectorProps) {
-  const selectedType = POSTER_TYPES.find(type => type.id === value);
-
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Choose Poster Type</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {POSTER_TYPES.map((type) => (
-              <Button
-                key={type.id}
-                variant={value === type.id ? "default" : "outline"}
-                className="h-24 p-4 flex flex-col items-center space-y-2 text-left border-2 border-border rounded-lg transition-all hover:shadow-md"
-                onClick={() => onChange(type.id)}
-              >
-                <type.icon className="h-8 w-8 mb-2" />
-                <h3 className="font-semibold text-lg">{type.label}</h3>
-                <p className="text-sm text-muted-foreground text-center">{type.description}</p>
-                
-                {value === type.id && (
-                  <div className="mt-4 space-y-1">
-                    {type.features.map((feature, index) => (
-                      <div key={index} className="flex items-center text-xs text-muted-foreground">
-                        <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-2 gap-4 mb-6">
+      {POSTER_TYPES.map((type) => {
+        const Icon = type.icon;
+        const isSelected = value === type.id;
+        return (
+          <button
+            key={type.id}
+            type="button"
+            onClick={() => onChange(type.id)}
+            className={cn(
+              "relative flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left",
+              "hover:border-primary/50 hover:shadow-sm",
+              isSelected
+                ? "border-primary bg-primary/5 shadow-sm"
+                : "border-muted bg-card"
+            )}
+          >
+            <div
+              className={cn(
+                "flex items-center justify-center w-12 h-12 rounded-lg",
+                isSelected
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              <Icon className="w-6 h-6" />
+            </div>
+            <div>
+              <div className={cn("font-semibold", isSelected && "text-primary")}>
+                {type.label}
+              </div>
+              <div className="text-sm text-muted-foreground">{type.description}</div>
+            </div>
+            {isSelected && (
+              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                <Check className="w-3 h-3" />
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

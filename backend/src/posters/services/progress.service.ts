@@ -2,10 +2,22 @@ import type { IProgressService } from '../interfaces'
 import type { PosterProgress } from '../types'
 
 /**
- * Progress tracking service for poster creation jobs
+ * Progress tracking service for poster creation jobs.
+ *
+ * Must call setContext() with the Motia event handler context
+ * before use, so progress updates are pushed to the posterProgress stream.
  */
 export class ProgressService implements IProgressService {
   private progress: Map<string, PosterProgress> = new Map()
+  private context: any = null
+
+  /**
+   * Inject Motia context so stream updates can be pushed.
+   * Call this once per event handler invocation.
+   */
+  setContext(ctx: any): void {
+    this.context = ctx
+  }
 
   async updateProgress(
     jobId: string,
@@ -26,10 +38,45 @@ export class ProgressService implements IProgressService {
     }
 
     this.progress.set(jobId, progressEntry)
-    
-    // In a real implementation, this would also update the stream
-    // For now, we just store in memory
+
     console.log(`[${jobId}] ${progress}% - ${message}`)
+
+    // Push to Motia stream so the frontend receives real-time updates
+    if (this.context?.streams?.posterProgress) {
+      try {
+        await this.context.streams.posterProgress.set(jobId, 'status', {
+          status: progressEntry.status,
+          message: progressEntry.message,
+          progress: progressEntry.progress,
+          jobId,
+          outputFile: progressEntry.outputFile,
+          error: progressEntry.error,
+          timestamp: progressEntry.timestamp,
+        })
+      } catch (err) {
+        console.warn(`Failed to push progress to stream for ${jobId}:`, err)
+      }
+    }
+
+    // Also update job state so the Jobs page reflects current status
+    if (this.context?.state) {
+      try {
+        const existing = await this.context.state.get('posterJobs', jobId)
+        if (existing) {
+          await this.context.state.set('posterJobs', jobId, {
+            ...existing,
+            status: progressEntry.status,
+            progress: progressEntry.progress,
+            message: progressEntry.message,
+            outputFile: progressEntry.outputFile || existing.outputFile,
+            error: progressEntry.error || existing.error,
+            updatedAt: progressEntry.timestamp,
+          })
+        }
+      } catch (err) {
+        console.warn(`Failed to update job state for ${jobId}:`, err)
+      }
+    }
   }
 
   async getProgress(jobId: string): Promise<PosterProgress | null> {
@@ -48,13 +95,6 @@ export class ProgressService implements IProgressService {
       100,
       outputFile
     )
-
-    // Store completion metadata
-    const existingProgress = this.progress.get(jobId)
-    if (existingProgress) {
-      existingProgress.outputFile = outputFile
-      this.progress.set(jobId, existingProgress)
-    }
   }
 
   async failProgress(jobId: string, error: string): Promise<void> {
@@ -68,25 +108,19 @@ export class ProgressService implements IProgressService {
     )
   }
 
-  /**
-   * Get all active jobs
-   */
   getActiveJobs(): PosterProgress[] {
     return Array.from(this.progress.values()).filter(
       p => p.status !== 'completed' && p.status !== 'error'
     )
   }
 
-  /**
-   * Clean up old completed jobs
-   */
   cleanup(maxAge: number = 24 * 60 * 60 * 1000): void {
     const now = Date.now()
     const cutoffTime = now - maxAge
 
     for (const [jobId, progress] of this.progress.entries()) {
       const progressTime = new Date(progress.timestamp).getTime()
-      
+
       if (
         (progress.status === 'completed' || progress.status === 'error') &&
         progressTime < cutoffTime
@@ -96,9 +130,6 @@ export class ProgressService implements IProgressService {
     }
   }
 
-  /**
-   * Get job statistics
-   */
   getStats(): {
     total: number
     active: number
@@ -106,7 +137,7 @@ export class ProgressService implements IProgressService {
     failed: number
   } {
     const allJobs = Array.from(this.progress.values())
-    
+
     return {
       total: allJobs.length,
       active: allJobs.filter(j => j.status !== 'completed' && j.status !== 'error').length,
@@ -122,4 +153,4 @@ export const progressService = new ProgressService()
 // Set up periodic cleanup
 setInterval(() => {
   progressService.cleanup()
-}, 60 * 60 * 1000) // Clean up every hour
+}, 60 * 60 * 1000)

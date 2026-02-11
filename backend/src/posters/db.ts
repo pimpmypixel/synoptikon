@@ -13,6 +13,7 @@ export function getDb(): Database.Database {
       CREATE TABLE IF NOT EXISTS posters (
         id TEXT PRIMARY KEY,
         filename TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'map',
         city TEXT NOT NULL,
         country TEXT NOT NULL,
         theme TEXT NOT NULL DEFAULT 'feature_based',
@@ -33,6 +34,15 @@ export function getDb(): Database.Database {
         created_at TEXT NOT NULL
       )
     `)
+
+    // Migration: add type column to existing databases
+    const columns = _db.pragma('table_info(posters)') as { name: string }[]
+    if (!columns.some(c => c.name === 'type')) {
+      _db.exec(`ALTER TABLE posters ADD COLUMN type TEXT NOT NULL DEFAULT 'map'`)
+    }
+
+    // Migration: rename night-sky → your-sky
+    _db.exec(`UPDATE posters SET type='your-sky' WHERE type='night-sky'`)
   }
   return _db
 }
@@ -49,6 +59,7 @@ export function generatePosterId(): string {
 export interface PosterRecord {
   id: string
   filename: string
+  type: 'map' | 'your-sky'
   city: string
   country: string
   theme: string
@@ -90,13 +101,14 @@ export function getPosterByFilename(filename: string): PosterRecord | null {
 export function insertPoster(record: PosterRecord): void {
   const db = getDb()
   db.prepare(`
-    INSERT INTO posters (id, filename, city, country, theme, format, distance, landscape,
+    INSERT INTO posters (id, filename, type, city, country, theme, format, distance, landscape,
       title_font, subtitle_font, paper_size, rotation, border, lat, lon,
       width_cm, height_cm, file_size, thumbnail, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     record.id,
     record.filename,
+    record.type,
     record.city,
     record.country,
     record.theme,
@@ -132,6 +144,7 @@ function rowToRecord(row: any): PosterRecord {
   return {
     id: row.id,
     filename: row.filename,
+    type: row.type || 'map',
     city: row.city,
     country: row.country,
     theme: row.theme,

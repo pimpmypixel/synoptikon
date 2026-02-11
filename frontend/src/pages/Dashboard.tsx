@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMotiaStream } from "@motiadev/stream-client-react";
-import { PageHeader, PageHeaderHeading, PageHeaderDescription } from "@/components/page-header";
+import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +17,6 @@ import {
   PenTool,
   Clock,
   Copy,
-  LayoutGrid,
-  List,
   Eye,
   Trash2,
   X,
@@ -31,6 +29,7 @@ import {
   Check,
   Loader2,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import type { PosterFormData, PosterJob } from "@/components/configurator";
 import { SaveToGoogleDrive } from "@/components/google-drive";
@@ -50,7 +49,13 @@ interface PosterInfo {
   paperSize?: string;
   rotation?: number;
   border?: number;
-  type: "map" | "night-sky";
+  type: "map" | "your-sky";
+  fileSize?: number;
+  createdAt?: string;
+  lat?: number;
+  lon?: number;
+  widthCm?: number;
+  heightCm?: number;
 }
 
 type ViewMode = "grid" | "table";
@@ -276,12 +281,12 @@ function PosterGridCard({
           <span>•</span>
           <span>{poster.landscape ? "Land" : "Port"}</span>
           <span>•</span>
-          <span>{formatFileSize(poster.fileSize)}</span>
+          {poster.fileSize != null && <span>{formatFileSize(poster.fileSize)}</span>}
         </div>
 
         <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-2">
           <Clock className="w-2.5 h-2.5" />
-          {new Date(poster.createdAt).toLocaleDateString()}
+          {poster.createdAt ? new Date(poster.createdAt).toLocaleDateString() : "—"}
         </div>
 
         {/* Actions */}
@@ -375,10 +380,10 @@ function PosterTableRow({
         {poster.landscape ? "Landscape" : "Portrait"}
       </td>
       <td className="p-3 text-sm text-muted-foreground">
-        {formatFileSize(poster.fileSize)}
+        {poster.fileSize != null ? formatFileSize(poster.fileSize) : "—"}
       </td>
       <td className="p-3 text-sm text-muted-foreground">
-        {new Date(poster.createdAt).toLocaleDateString()}
+        {poster.createdAt ? new Date(poster.createdAt).toLocaleDateString() : "—"}
       </td>
       <td className="p-3">
         <div className="flex gap-1">
@@ -412,6 +417,7 @@ function LocationSection({
   country,
   posters,
   viewMode,
+  activeTab,
   onClone,
   onPreview,
   onDelete,
@@ -420,6 +426,7 @@ function LocationSection({
   country: string;
   posters: PosterInfo[];
   viewMode: ViewMode;
+  activeTab: "map" | "your-sky" | "all";
   onClone: (poster: PosterInfo) => void;
   onPreview: (poster: PosterInfo) => void;
   onDelete: (poster: PosterInfo) => void;
@@ -441,7 +448,7 @@ function LocationSection({
       {/* Grid View */}
       {viewMode === "grid" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {posters.filter(poster => poster.type === activeTab).map((poster) => (
+          {posters.filter(poster => activeTab === "all" || poster.type === activeTab).map((poster) => (
             <PosterGridCard
               key={poster.filename}
               poster={poster}
@@ -493,6 +500,7 @@ const JOB_STAGES = [
   { status: "downloading_streets", label: "Streets", Icon: Route },
   { status: "downloading_parks", label: "Parks", Icon: Trees },
   { status: "downloading_water", label: "Water", Icon: Droplet },
+  { status: "calculating_celestial", label: "Sky", Icon: Star },
   { status: "rendering", label: "Rendering", Icon: Palette },
   { status: "saving", label: "Saving", Icon: Save },
   { status: "completed", label: "Done", Icon: Check },
@@ -640,12 +648,17 @@ function ActiveJobsSidebar({
 
 export default function Dashboard() {
   const [posters, setPosters] = useState<PosterInfo[]>([]);
+  const [jobs, setJobs] = useState<PosterJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [deleteModal, setDeleteModal] = useState<PosterInfo | null>(null);
+  const [viewMode] = useState<ViewMode>("grid");
+  const [previewPoster, setPreviewPoster] = useState<PosterInfo | null>(null);
+  const [deletePoster, setDeletePoster] = useState<PosterInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<"map" | "night-sky">("map");
+  const [activeTab, setActiveTab] = useState<"map" | "your-sky" | "all">("all");
+  const navigate = useNavigate();
+  const { stream } = useMotiaStream();
+  const { addToast, updateToast } = useToast();
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -710,6 +723,7 @@ export default function Dashboard() {
 
   const handleClone = (poster: PosterInfo) => {
     const formData: Partial<PosterFormData> = {
+      type: poster.type || "map",
       city: poster.city,
       country: poster.country,
       theme: poster.theme,
@@ -808,7 +822,7 @@ export default function Dashboard() {
               <div>
                 <h3 className="text-2xl font-bold tracking-tight">Poster Gallery</h3>
                 <p className="text-muted-foreground">
-                  Your collection of generated map and night sky posters
+                  Your collection of generated map and sky posters
                 </p>
               </div>
             </div>
@@ -831,6 +845,20 @@ export default function Dashboard() {
             </a>
           </Button>
         </div>
+      </PageHeader>
+
+      {/* Type filter tabs */}
+      <div className="flex gap-2 mb-4">
+        {(["all", "map", "your-sky"] as const).map((tab) => (
+          <Button
+            key={tab}
+            variant={activeTab === tab ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "all" ? "All" : tab === "map" ? "Maps" : "Your Sky"}
+          </Button>
+        ))}
       </div>
 
       <div className="flex gap-6">
@@ -877,6 +905,7 @@ export default function Dashboard() {
                 country={group.country}
                 posters={group.posters}
                 viewMode={viewMode}
+                activeTab={activeTab}
                 onClone={handleClone}
                 onPreview={setPreviewPoster}
                 onDelete={setDeletePoster}

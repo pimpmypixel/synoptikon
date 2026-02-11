@@ -1,6 +1,6 @@
 export interface PosterFormData {
   // Core fields
-  type: "map" | "night-sky";
+  type: "map" | "your-sky";
   city: string;
   country: string;
   lat?: number;
@@ -31,10 +31,12 @@ export interface PosterFormData {
     planets?: boolean;
     moon?: boolean;
     constellations?: boolean;
+    zodiac?: boolean;
+    grid?: boolean;
     deepSkyObjects?: boolean;
   };
   projection?: {
-    type: "stereographic";
+    type: "stereographic" | "polar";
     centerLat?: number;
     centerLon?: number;
     fov?: number;
@@ -97,7 +99,6 @@ export interface PosterJob {
   updatedAt: string;
 }
 
-export type LocationMode = "city" | "coords" | "google";
 
 export const THEMES = [
   // Map themes
@@ -115,12 +116,15 @@ export const THEMES = [
   { value: "copper_patina", label: "Copper Patina", description: "Aged copper aesthetics", type: "map" },
   
   // Night sky themes
-  { value: "starry_night", label: "Starry Night", description: "Deep blue with bright stars", type: "night-sky" },
-  { value: "cosmic_purple", label: "Cosmic Purple", description: "Mysterious purple nebula", type: "night-sky" },
-  { value: "aurora_green", label: "Aurora Green", description: "Northern lights style", type: "night-sky" },
-  { value: "lunar_gray", label: "Lunar Gray", description: "Moon surface monochrome", type: "night-sky" },
-  { value: "solar_orange", label: "Solar Orange", description: "Warm solar corona", type: "night-sky" },
-  { value: "nebula_pink", label: "Nebula Pink", description: "Pink cosmic dust", type: "night-sky" },
+  { value: "starry_night", label: "Starry Night", description: "Deep blue with bright stars", type: "your-sky" },
+  { value: "cosmic_purple", label: "Cosmic Purple", description: "Mysterious purple nebula", type: "your-sky" },
+  { value: "aurora_green", label: "Aurora Green", description: "Northern lights style", type: "your-sky" },
+  { value: "lunar_gray", label: "Lunar Gray", description: "Moon surface monochrome", type: "your-sky" },
+  { value: "solar_orange", label: "Solar Orange", description: "Warm solar corona", type: "your-sky" },
+  { value: "nebula_pink", label: "Nebula Pink", description: "Pink cosmic dust", type: "your-sky" },
+  { value: "classic_ivory", label: "Classic Ivory", description: "Cream with gold accents", type: "your-sky" },
+  { value: "arctic_blue", label: "Arctic Blue", description: "Pale blue with steel tones", type: "your-sky" },
+  { value: "dawn_rose", label: "Dawn Rose", description: "Blush with dusty rose", type: "your-sky" },
 ] as const;
 
 export const DISTANCE_OPTIONS = [
@@ -207,6 +211,7 @@ export const PROGRESS_STAGES = [
   { status: "downloading_streets", label: "Streets", icon: "route" },
   { status: "downloading_parks", label: "Parks", icon: "trees" },
   { status: "downloading_water", label: "Water", icon: "droplet" },
+  { status: "calculating_celestial", label: "Computing Sky", icon: "star" },
   { status: "rendering", label: "Rendering", icon: "palette" },
   { status: "saving", label: "Saving", icon: "save" },
   { status: "completed", label: "Complete", icon: "check" },

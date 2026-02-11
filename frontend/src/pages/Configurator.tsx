@@ -14,10 +14,8 @@ import {
   ProgressView,
   PosterPreview,
   PosterTypeSelector,
-  NightSkyStep,
   type PosterFormData,
   type ProgressUpdate,
-  type LocationMode,
   PAPER_SIZES,
 } from "@/components/configurator";
 
@@ -67,10 +65,15 @@ const INITIAL_FORM_DATA: PosterFormData = {
   rotation: 0,
 };
 
+// Default theme per poster type
+const DEFAULT_THEMES: Record<PosterFormData["type"], string> = {
+  map: "feature_based",
+  "your-sky": "starry_night",
+};
+
 export default function Configurator() {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<PosterFormData>(INITIAL_FORM_DATA);
-  const [locationMode, setLocationMode] = useState<LocationMode>("city");
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
@@ -90,9 +93,6 @@ export default function Configurator() {
         const parsed = JSON.parse(clonedData) as Partial<PosterFormData>;
         setFormData((prev) => ({ ...prev, ...parsed }));
         setIsCloned(true);
-        if (parsed.lat != null && parsed.lon != null) {
-          setLocationMode("coords");
-        }
         sessionStorage.removeItem("clonePosterData");
       } catch (e) {
         console.error("Failed to parse cloned poster data:", e);
@@ -145,11 +145,8 @@ export default function Configurator() {
       ...formData,
       widthCm,
       heightCm,
-      lat: locationMode === "coords" ? formData.lat : undefined,
-      lon: locationMode === "coords" ? formData.lon : undefined,
-      googleMapsUrl: locationMode === "google" ? formData.googleMapsUrl : undefined,
     };
-  }, [formData, locationMode]);
+  }, [formData]);
 
   const submitPayload = async (payload: PosterFormData): Promise<string> => {
     const response = await fetch("/posters/create", {
@@ -181,7 +178,6 @@ export default function Configurator() {
         err instanceof TypeError && err.message.includes("fetch");
 
       if (isNetworkError) {
-        // Backend is down — save to localStorage for retry
         addQueuedSubmission(payload);
         setQueuedCount(getQueuedSubmissions().length);
         setError("Backend is offline. Your poster has been saved and will be submitted when the server comes back.");
@@ -207,7 +203,6 @@ export default function Configurator() {
         removeQueuedSubmission(i);
         successCount++;
       } catch {
-        // Still offline — stop retrying
         setError("Backend still offline. Will keep your submissions queued.");
         break;
       }
@@ -229,16 +224,24 @@ export default function Configurator() {
   const updateFormData = (key: keyof PosterFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
-  
-  const updateNightSkyFormData = (updates: Partial<Omit<PosterFormData, "type"> & { type: "night-sky" }>) => {
-    setFormData((prev) => ({ ...prev, ...updates } as PosterFormData));
+
+  const handleTypeChange = (type: PosterFormData["type"]) => {
+    setFormData((prev) => ({
+      ...prev,
+      type,
+      theme: DEFAULT_THEMES[type],
+    }));
+    setCurrentStep(0);
   };
 
   const canProceed = () => {
     if (currentStep === 0) {
-      if (locationMode === "google") return !!(formData.googleMapsUrl && formData.city && formData.country);
-      if (locationMode === "coords") return formData.lat !== undefined && formData.lon !== undefined && !!formData.city && !!formData.country;
-      return !!(formData.city && formData.country);
+      const hasLabel = !!(formData.city && formData.country);
+      const hasCoords = (formData.lat != null && formData.lon != null) || !!formData.googleMapsUrl;
+      if (formData.type === "your-sky") {
+        return hasLabel && hasCoords && !!formData.timestamp;
+      }
+      return hasLabel && hasCoords;
     }
     return true;
   };
@@ -249,7 +252,6 @@ export default function Configurator() {
     setError(null);
     setCurrentStep(0);
     setFormData(INITIAL_FORM_DATA);
-    setLocationMode("city");
     setIsCloned(false);
   };
 
@@ -260,7 +262,7 @@ export default function Configurator() {
         <PageHeader>
           <PageHeaderHeading>Creating Your Poster</PageHeaderHeading>
           <PageHeaderDescription>
-            Please wait while we generate your map poster
+            Please wait while we generate your poster
           </PageHeaderDescription>
         </PageHeader>
         <ProgressView
@@ -268,15 +270,18 @@ export default function Configurator() {
           progress={progress}
           wsConnected={wsConnected}
           onReset={resetForm}
+          posterType={formData.type}
         />
       </>
     );
   }
 
+  const stepTitles = ["Location", "Style", "Output"];
   const stepDescriptions = [
-    "Choose your poster type",
-    "Choose where you want to capture",
-    "Pick a visual style for your poster",
+    formData.type === "map"
+      ? "Choose location, coverage area and rotation"
+      : "Choose location, observation time and projection",
+    "Pick a visual theme and fonts for your poster",
     "Set output format and size",
   ];
 
@@ -297,7 +302,7 @@ export default function Configurator() {
         <PageHeaderDescription>
           {isCloned
             ? "Modify the settings to create a new version"
-            : "Design beautiful map posters in three simple steps"}
+            : "Design beautiful posters in three simple steps"}
         </PageHeaderDescription>
       </PageHeader>
 
@@ -343,58 +348,33 @@ export default function Configurator() {
         </Alert>
       )}
 
+      {/* Poster type selector — always visible above the wizard */}
+      <PosterTypeSelector value={formData.type} onChange={handleTypeChange} />
+
       <StepIndicator currentStep={currentStep} />
 
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         {/* Poster Type Selection */}
-         <div className="lg:col-span-1">
-           <PosterTypeSelector
-             value={formData.type}
-             onChange={(type) => updateFormData("type", type)}
-           />
-         </div>
-         
-         {/* Form Panel */}
-         <div className="lg:col-span-2">
-           <Card>
-             <CardHeader>
-               <CardTitle>{["Poster Type", "Location", "Style", "Output"][currentStep]}</CardTitle>
-               <CardDescription>{stepDescriptions[currentStep]}</CardDescription>
-             </CardHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Panel */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{stepTitles[currentStep]}</CardTitle>
+              <CardDescription>{stepDescriptions[currentStep]}</CardDescription>
+            </CardHeader>
 
             <CardContent className="min-h-[300px]">
               {currentStep === 0 && (
-                <PosterTypeSelector
-                  value={formData.type}
-                  onChange={(type) => {
-                    updateFormData("type", type);
-                    // Reset to first step when changing poster type
-                    setCurrentStep(0);
-                  }}
-                />
-              )}
-              
-              {currentStep === 1 && (
                 <LocationStep
                   formData={formData}
                   updateFormData={updateFormData}
-                  locationMode={locationMode}
-                  setLocationMode={setLocationMode}
                 />
               )}
-              
-              {currentStep === 2 && formData.type === "map" && (
+
+              {currentStep === 1 && (
                 <ThemeStep formData={formData} updateFormData={updateFormData} />
               )}
-              
-              {currentStep === 2 && formData.type === "night-sky" && (
-                <NightSkyStep
-                  value={formData as any}
-                  onChange={updateNightSkyFormData}
-                />
-              )}
-              
-              {currentStep === 3 && (
+
+              {currentStep === 2 && (
                 <DimensionsStep formData={formData} updateFormData={updateFormData} />
               )}
             </CardContent>
@@ -446,7 +426,7 @@ export default function Configurator() {
         <div className="lg:col-span-1">
           <Card className="sticky top-4">
             <CardContent className="pt-6">
-              <PosterPreview formData={formData} locationMode={locationMode} />
+              <PosterPreview formData={formData} />
             </CardContent>
           </Card>
         </div>
